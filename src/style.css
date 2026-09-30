@@ -23,3 +23,23 @@ canvas {
 canvas:active {
   cursor: grabbing;
 }
+
+#home {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  font: 14px/1 system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #000;
+  border: 1px solid #fff;
+  cursor: pointer;
+}
+
+#home:hover,
+#home:focus-visible {
+  color: #000;
+  background: #fff;
+}

@@ -17,7 +17,8 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   controls.update()
 
   // Caméra et cible avancent ensemble : aucune butée autour d'un centre d'orbite.
-  let targetZ = camera.position.z
+  const homeZ = camera.position.z
+  let targetZ = homeZ
   // Vitesse constante (unités/s) et avance maximale de la cible sur la caméra :
   // la molette reste proportionnelle et la caméra s'arrête dès qu'on la lâche.
   const travelSpeed = 30
@@ -61,6 +62,13 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   }
 
   return {
+    // Retour au point de départ : centre de la vue et position initiale de la caméra.
+    home() {
+      targetZ = homeZ
+      camera.position.set(0, 0, homeZ)
+      controls.target.set(0, 0, 0)
+      controls.update()
+    },
     update(delta) {
       const previousZ = camera.position.z
       if (reducedMotion.matches) {

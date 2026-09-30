@@ -36,6 +36,8 @@ const particles = createParticles(scene, planets.planets)
 const navigation = createNavigation({ camera, domElement: renderer.domElement, app, reducedMotion })
 const postprocessing = createPostprocessing(renderer, scene, camera)
 const debugPane = createDebugPane(postprocessing.bloom, planets.reliefMaterials)
+const homeButton = document.querySelector('#home')
+homeButton.addEventListener('click', navigation.home)
 
 let resizePending = true
 let renderWidth = 0
@@ -84,6 +86,7 @@ renderer.setAnimationLoop((time) => {
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     resizeObserver.disconnect()
+    homeButton.removeEventListener('click', navigation.home)
     renderer.setAnimationLoop(null)
     debugPane.dispose()
     navigation.dispose()
