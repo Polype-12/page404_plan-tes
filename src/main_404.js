@@ -178,6 +178,7 @@ renderer.setAnimationLoop((time) => {
   if (mode === 'space') navigation.update(delta)
 
   planets.update(reducedMotion.matches ? 0 : delta, spaceCamera)
+  particles.update(spaceCamera)
   sun.follow(spaceCamera)
   postprocessing.render(delta)
   portal.render(enter, time / 1000, reducedMotion.matches ? 0 : 1)

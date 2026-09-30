@@ -79,6 +79,7 @@ renderer.setAnimationLoop((time) => {
   previousTime = time
   navigation.update(delta)
   planets.update(reducedMotion.matches ? 0 : delta, camera)
+  particles.update(camera)
   sun.follow(camera)
   postprocessing.render(delta)
 })

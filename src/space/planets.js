@@ -101,6 +101,14 @@ function darkenNightSide(material) {
   }
 }
 
+// Défilement infini : le couloir se répète tous les LOOP_LENGTH. Aucun astre n'est créé ni détruit :
+// un système passé derrière la caméra (à plus de BEHIND) est replacé LOOP_LENGTH plus loin devant,
+// et apparaît en grossissant sur FADE unités pour ne pas surgir à l'horizon. Une répétition sur deux
+// est inversée en x pour que le motif ne saute pas aux yeux.
+export const LOOP_LENGTH = 1100
+const BEHIND = 120
+const FADE = 80
+
 export function createPlanets({ scene, renderer, sun }) {
   // Une géométrie commune, avec une taille et une texture propres à chaque astre.
   const geometry = new THREE.SphereGeometry(1, 64, 64)
@@ -109,6 +117,7 @@ export function createPlanets({ scene, renderer, sun }) {
   const atmospheres = []
   const orbits = []
   const reliefMaterials = []
+  const systems = []
 
   function createBody({ name, file, normalMap, normalScale = 1, radius, atmosphere }) {
     const texture = textureLoader.load(`${import.meta.env.BASE_URL}${file}`)
@@ -161,6 +170,7 @@ export function createPlanets({ scene, renderer, sun }) {
       orbits.push({ orbit, speed: 0.15 * orbitSpeed * Math.pow(body.radius / satellite.distance, 1.5) })
     }
     scene.add(system)
+    systems.push({ system, base: position, loop: 0 })
     return { center: system.position, radius: body.radius }
   })
 
@@ -169,6 +179,18 @@ export function createPlanets({ scene, renderer, sun }) {
     reliefMaterials,
     update(delta, camera) {
       for (const { orbit, speed } of orbits) orbit.rotation.y += speed * delta
+      const cameraZ = camera.position.z
+      for (const entry of systems) {
+        const [x, y, z] = entry.base
+        const loop = Math.floor((cameraZ + BEHIND - z) / LOOP_LENGTH)
+        if (loop !== entry.loop) {
+          entry.loop = loop
+          entry.system.position.set(loop % 2 ? -x : x, y, z + loop * LOOP_LENGTH)
+        }
+        const appear = THREE.MathUtils.smoothstep(LOOP_LENGTH - BEHIND - (cameraZ - entry.system.position.z), 0, FADE)
+        entry.system.visible = appear > 0.001
+        entry.system.scale.setScalar(Math.max(appear, 0.001))
+      }
       updateAtmosphereSides(atmospheres, camera)
     },
     dispose() {

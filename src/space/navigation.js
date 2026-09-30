@@ -28,7 +28,8 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   const options = { signal: events.signal }
   function advance(distance) {
     const lead = THREE.MathUtils.clamp(targetZ - distance - camera.position.z, -maxLead, maxLead)
-    targetZ = THREE.MathUtils.clamp(camera.position.z + lead, -870, 24)
+    // Pas de butée vers l'avant : le décor se répète (voir planets.js et particles.js).
+    targetZ = Math.min(camera.position.z + lead, 24)
   }
 
   domElement.addEventListener('wheel', (event) => {

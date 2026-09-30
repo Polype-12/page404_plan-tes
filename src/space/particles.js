@@ -1,7 +1,10 @@
 import * as THREE from 'three'
+import { LOOP_LENGTH } from './planets.js'
 
 // Trois lots suffisent pour dessiner toutes les particules, sans objet par point.
 // Chaque lot contient des particules proches et lointaines, fixes dans le monde 3D.
+// Le décor se répète tous les LOOP_LENGTH : chaque lot est dessiné par deux tuiles (mêmes points,
+// même géométrie) qui suivent la caméra, comme les astres de planets.js.
 export function createParticles(scene, planets) {
   // Un petit disque blanc partagé pour obtenir des points ronds.
   const canvas = document.createElement('canvas')
@@ -24,7 +27,7 @@ export function createParticles(scene, planets) {
         position.set(
           THREE.MathUtils.randFloatSpread(spread * 2),
           THREE.MathUtils.randFloatSpread(spread * 2),
-          nearby ? THREE.MathUtils.randFloat(-35, 15) : THREE.MathUtils.randFloat(-1000, -35),
+          nearby ? THREE.MathUtils.randFloat(-35, 15) : THREE.MathUtils.randFloat(-LOOP_LENGTH, -35),
         )
       } while (planets.some(({ center, radius }) => position.distanceTo(center) < radius + 1))
       positions.push(position.x, position.y, position.z)
@@ -41,12 +44,20 @@ export function createParticles(scene, planets) {
       depthWrite: false,
       toneMapped: false,
     })
-    const points = new THREE.Points(geometry, material)
-    scene.add(points)
-    return points
+    const tiles = [new THREE.Points(geometry, material), new THREE.Points(geometry, material)]
+    scene.add(...tiles)
+    return { tiles, geometry, material }
   })
 
   return {
+    update(camera) {
+      // Deux tuiles contiguës couvrent de la caméra jusqu'au fond de l'horizon.
+      const end = Math.ceil(camera.position.z / LOOP_LENGTH) * LOOP_LENGTH
+      for (const { tiles } of fields) {
+        tiles[0].position.z = end
+        tiles[1].position.z = end - LOOP_LENGTH
+      }
+    },
     dispose() {
       for (const { geometry, material } of fields) {
         geometry.dispose()
