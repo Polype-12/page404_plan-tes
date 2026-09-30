@@ -35,7 +35,8 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
     if (!enabled) return
     event.preventDefault()
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? app.clientHeight : 1
-    advance(THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.04)
+    // Même sens que OrbitControls (le 404) : molette vers le haut = avancer, vers le bas = reculer.
+    advance(-THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.04)
   }, { ...options, passive: false })
 
   const touchPoints = new Map()
