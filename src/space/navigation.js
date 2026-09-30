@@ -20,10 +20,12 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   const homeZ = camera.position.z
   let targetZ = homeZ
   let enabled = true
-  // Vitesse constante (unités/s) et avance maximale de la cible sur la caméra :
-  // la molette reste proportionnelle et la caméra s'arrête dès qu'on la lâche.
-  const travelSpeed = 30
-  const maxLead = 12
+  // Vitesse maximale (unités/s), accélération (unités/s²) et avance maximale de la cible sur la
+  // caméra : la molette reste proportionnelle, la caméra démarre et s'arrête en douceur.
+  const maxSpeed = 50
+  const acceleration = 100
+  const maxLead = 18
+  let velocity = 0
   const events = new AbortController()
   const options = { signal: events.signal }
   function advance(distance) {
@@ -37,7 +39,7 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
     event.preventDefault()
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? app.clientHeight : 1
     // Même sens que OrbitControls (le 404) : molette vers le haut = avancer, vers le bas = reculer.
-    advance(-THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.04)
+    advance(-THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.06)
   }, { ...options, passive: false })
 
   const touchPoints = new Map()
@@ -68,6 +70,7 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   // Replace la caméra sur l'axe à la profondeur z, vue recentrée (par défaut : le point de départ).
   function reset(z = homeZ) {
     targetZ = z
+    velocity = 0
     camera.position.set(0, 0, z)
     controls.target.set(0, 0, z - homeZ)
     controls.update()
@@ -89,11 +92,21 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
       const previousZ = camera.position.z
       if (reducedMotion.matches) {
         camera.position.z = targetZ
+        velocity = 0
       } else {
-        // Déplacement linéaire : vitesse constante jusqu'à la cible, sans accélération.
+        // Profil trapézoïdal : accélération constante, vitesse de croisière, puis freinage calé pour
+        // s'arrêter exactement sur la cible (la vitesse voulue suit la courbe de freinage).
         const offset = targetZ - camera.position.z
-        const step = travelSpeed * delta
-        camera.position.z = Math.abs(offset) <= step ? targetZ : camera.position.z + Math.sign(offset) * step
+        const wanted = Math.sign(offset) * Math.min(maxSpeed, Math.sqrt(2 * acceleration * Math.abs(offset)))
+        const maxChange = acceleration * delta
+        velocity += THREE.MathUtils.clamp(wanted - velocity, -maxChange, maxChange)
+        const step = velocity * delta
+        if (Math.abs(offset) < 1e-3 || (Math.sign(step) === Math.sign(offset) && Math.abs(step) >= Math.abs(offset))) {
+          camera.position.z = targetZ
+          velocity = 0
+        } else {
+          camera.position.z += step
+        }
       }
       controls.target.z += camera.position.z - previousZ
       controls.update()

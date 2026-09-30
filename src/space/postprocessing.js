@@ -6,7 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
 // Halo discret : seules les zones les plus éclairées débordent légèrement,
 // comme la diffusion d'une optique d'appareil photo.
-const BLOOM = { strength: 0.07, radius: 0.47, threshold: 0.04 }
+const BLOOM = { strength: 0.07, radius: 0.15, threshold: 0.37 }
 
 // toScreen : false pour rendre l'espace dans une texture (sans conversion sRGB) réutilisée ailleurs.
 export function createPostprocessing(renderer, scene, camera, { toScreen = true } = {}) {
