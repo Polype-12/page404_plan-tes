@@ -17,8 +17,8 @@ export function createParticles(scene, planets) {
   const fields = [0.08, 0.16, 0.28].map((size) => {
     const positions = []
     const position = new THREE.Vector3()
-    for (let i = 0; i < 1000; i++) {
-      const nearby = i < 150
+    for (let i = 0; i < 500; i++) {
+      const nearby = i < 75
       const spread = nearby ? 35 : 200
       do {
         position.set(
