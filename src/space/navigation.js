@@ -19,6 +19,7 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   // Caméra et cible avancent ensemble : aucune butée autour d'un centre d'orbite.
   const homeZ = camera.position.z
   let targetZ = homeZ
+  let enabled = true
   // Vitesse constante (unités/s) et avance maximale de la cible sur la caméra :
   // la molette reste proportionnelle et la caméra s'arrête dès qu'on la lâche.
   const travelSpeed = 30
@@ -31,6 +32,7 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   }
 
   domElement.addEventListener('wheel', (event) => {
+    if (!enabled) return
     event.preventDefault()
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? app.clientHeight : 1
     advance(THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.04)
@@ -39,14 +41,14 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
   const touchPoints = new Map()
   let pinchDistance = null
   domElement.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') {
+    if (enabled && event.pointerType === 'touch') {
       touchPoints.set(event.pointerId, new THREE.Vector2(event.clientX, event.clientY))
       pinchDistance = touchPoints.size === 2
         ? [...touchPoints.values()][0].distanceTo([...touchPoints.values()][1]) : null
     }
   }, options)
   domElement.addEventListener('pointermove', (event) => {
-    if (!touchPoints.has(event.pointerId)) return
+    if (!enabled || !touchPoints.has(event.pointerId)) return
     touchPoints.get(event.pointerId).set(event.clientX, event.clientY)
     if (touchPoints.size !== 2) return
     const [first, second] = [...touchPoints.values()]
@@ -61,13 +63,25 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
     }, options)
   }
 
+  // Replace la caméra sur l'axe à la profondeur z, vue recentrée (par défaut : le point de départ).
+  function reset(z = homeZ) {
+    targetZ = z
+    camera.position.set(0, 0, z)
+    controls.target.set(0, 0, z - homeZ)
+    controls.update()
+  }
+
   return {
-    // Retour au point de départ : centre de la vue et position initiale de la caméra.
-    home() {
-      targetZ = homeZ
-      camera.position.set(0, 0, homeZ)
-      controls.target.set(0, 0, 0)
-      controls.update()
+    reset,
+    home: () => reset(),
+    // Désactivé, la navigation ignore souris et doigts : un autre contrôle prend la main.
+    setEnabled(value) {
+      enabled = value
+      controls.enabled = value
+      if (!value) {
+        touchPoints.clear()
+        pinchDistance = null
+      }
     },
     update(delta) {
       const previousZ = camera.position.z
