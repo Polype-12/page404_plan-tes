@@ -18,17 +18,21 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
 
   // Caméra et cible avancent ensemble : aucune butée autour d'un centre d'orbite.
   let targetZ = camera.position.z
-  let travelVelocity = 0
+  // Vitesse constante (unités/s) et avance maximale de la cible sur la caméra :
+  // la molette reste proportionnelle et la caméra s'arrête dès qu'on la lâche.
+  const travelSpeed = 30
+  const maxLead = 12
   const events = new AbortController()
   const options = { signal: events.signal }
   function advance(distance) {
-    targetZ = THREE.MathUtils.clamp(targetZ - distance, -650, 24)
+    const lead = THREE.MathUtils.clamp(targetZ - distance - camera.position.z, -maxLead, maxLead)
+    targetZ = THREE.MathUtils.clamp(camera.position.z + lead, -870, 24)
   }
 
   domElement.addEventListener('wheel', (event) => {
     event.preventDefault()
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? app.clientHeight : 1
-    advance(THREE.MathUtils.clamp(event.deltaY * unit, -160, 160) * 0.18)
+    advance(THREE.MathUtils.clamp(event.deltaY * unit, -100, 100) * 0.04)
   }, { ...options, passive: false })
 
   const touchPoints = new Map()
@@ -46,7 +50,7 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
     if (touchPoints.size !== 2) return
     const [first, second] = [...touchPoints.values()]
     const distance = first.distanceTo(second)
-    if (pinchDistance !== null) advance((distance - pinchDistance) * 0.35)
+    if (pinchDistance !== null) advance((distance - pinchDistance) * 0.1)
     pinchDistance = distance
   }, options)
   for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) {
@@ -61,15 +65,11 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
       const previousZ = camera.position.z
       if (reducedMotion.matches) {
         camera.position.z = targetZ
-        travelVelocity = 0
       } else {
-        // Ressort amorti analytique : départ progressif, mouvement rapide, arrêt sans rebond.
-        const frequency = 10
-        const offset = camera.position.z - targetZ
-        const impulse = travelVelocity + frequency * offset
-        const decay = Math.exp(-frequency * delta)
-        camera.position.z = targetZ + (offset + impulse * delta) * decay
-        travelVelocity = (travelVelocity - frequency * impulse * delta) * decay
+        // Déplacement linéaire : vitesse constante jusqu'à la cible, sans accélération.
+        const offset = targetZ - camera.position.z
+        const step = travelSpeed * delta
+        camera.position.z = Math.abs(offset) <= step ? targetZ : camera.position.z + Math.sign(offset) * step
       }
       controls.target.z += camera.position.z - previousZ
       controls.update()

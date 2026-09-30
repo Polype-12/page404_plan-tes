@@ -35,7 +35,7 @@ const planets = createPlanets({ scene, renderer, sun })
 const particles = createParticles(scene, planets.planets)
 const navigation = createNavigation({ camera, domElement: renderer.domElement, app, reducedMotion })
 const postprocessing = createPostprocessing(renderer, scene, camera)
-const debugPane = createDebugPane(postprocessing.bloom)
+const debugPane = createDebugPane(postprocessing.bloom, planets.reliefMaterials)
 
 let resizePending = true
 let renderWidth = 0
