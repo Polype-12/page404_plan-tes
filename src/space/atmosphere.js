@@ -14,6 +14,7 @@ export function createAtmosphere(geometry, sunUniforms, {
     fragmentShader: atmosphereFragmentShader,
     uniforms: {
       ...sunUniforms,
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uColor: { value: new THREE.Color(color) },
       uIntensity: { value: intensity },
       uThickness: { value: thickness },
@@ -25,6 +26,8 @@ export function createAtmosphere(geometry, sunUniforms, {
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    // Le brouillard de la scène atténue aussi le halo (voir shaders.js).
+    fog: true,
   })
   const mesh = new THREE.Mesh(geometry, material)
   mesh.scale.setScalar(shellScale)

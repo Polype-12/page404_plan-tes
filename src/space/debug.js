@@ -2,16 +2,41 @@ import { Pane } from 'tweakpane'
 
 // Panneau de réglage du halo : chaque modification est journalisée,
 // prête à être recopiée comme valeur par défaut de BLOOM dans postprocessing.js.
-export function createDebugPane(bloom, reliefMaterials = []) {
+export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass = null) {
   const pane = new Pane({ title: 'Glow' })
   pane.addBinding(bloom, 'strength', { min: 0, max: 3, step: 0.01 })
   pane.addBinding(bloom, 'radius', { min: 0, max: 1, step: 0.01 })
   pane.addBinding(bloom, 'threshold', { min: 0, max: 2, step: 0.01 })
 
+  // Reflets du verre du « 404 », à recopier comme valeur par défaut de GLASS dans glass404.js.
+  if (glass) {
+    const folder = pane.addFolder({ title: 'Glass' })
+    folder.addBinding(glass, 'reflections', { label: 'reflets', min: 0, max: 1.5, step: 0.01 })
+      .on('change', (event) => {
+        if (event.last) console.log(`const GLASS = { reflections: ${event.value} }`)
+      })
+  }
+
+  // Brouillard, à recopier comme valeur par défaut de FOG dans fog.js.
+  if (fog) {
+    const folder = pane.addFolder({ title: 'Fog' })
+    folder.addBinding(fog.settings, 'density', { label: 'quantité', min: 0, max: 0.03, step: 0.0005 })
+    folder.addBinding(fog.settings, 'sky', { label: 'fond', min: 0, max: 1, step: 0.01 })
+    folder.addBinding(fog.settings, 'color', { label: 'couleur' })
+    folder.on('change', (event) => {
+      fog.apply()
+      if (event.last) {
+        const { color, density, sky } = fog.settings
+        console.log(`const FOG = { color: '${color}', density: ${density}, sky: ${sky} }`)
+      }
+    })
+  }
+
   // Intensité des cartes de normales, à recopier dans normalScale de PLANETS (planets.js).
+  const reliefFolder = pane.addFolder({ title: 'Relief', expanded: false })
   for (const { name, material } of reliefMaterials) {
-    const relief = { [`Relief ${name}`]: material.normalScale.y }
-    pane.addBinding(relief, `Relief ${name}`, { min: 0, max: 2, step: 0.05 }).on('change', (event) => {
+    const relief = { [name]: material.normalScale.y }
+    reliefFolder.addBinding(relief, name, { min: 0, max: 2, step: 0.05 }).on('change', (event) => {
       material.normalScale.set(-event.value, event.value)
       if (event.last) console.log(`${name} : normalScale: ${event.value}`)
     })

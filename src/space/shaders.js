@@ -6,13 +6,16 @@ export const atmosphereVertexShader = /* glsl */ `
   varying vec3 vWorldPosition;
   varying vec3 vCenter;
   varying float vRadius;
+  #include <fog_pars_vertex>
 
   void main() {
     vec4 worldPosition = modelMatrix * vec4(position, 1.0);
     vWorldPosition = worldPosition.xyz;
     vCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vRadius = length((modelMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz) / uShellScale;
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    vec4 mvPosition = viewMatrix * worldPosition;
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
   }
 `
 
@@ -32,6 +35,7 @@ export const atmosphereFragmentShader = /* glsl */ `
   varying vec3 vWorldPosition;
   varying vec3 vCenter;
   varying float vRadius;
+  #include <fog_pars_fragment>
 
   // Distances d'entrée et de sortie d'un rayon dans une sphère centrée à l'origine.
   vec2 raySphere(vec3 origin, vec3 direction, float radius) {
@@ -110,6 +114,15 @@ export const atmosphereFragmentShader = /* glsl */ `
 
     vec3 scattered = (sumRayleigh * betaRayleigh * phaseRayleigh + sumMie * betaMie * phaseMie)
       * uIntensity * uSunIntensity;
+    // Mélange additif : le brouillard éteint la lumière ajoutée au lieu de la teinter.
+    #ifdef USE_FOG
+      #ifdef FOG_EXP2
+        float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+      #else
+        float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+      #endif
+      scattered *= 1.0 - fogFactor;
+    #endif
     // Lumière uniquement ajoutée : la surface n'est jamais assombrie au limbe.
     gl_FragColor = vec4(scattered, 1.0);
 

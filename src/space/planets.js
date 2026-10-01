@@ -4,11 +4,43 @@ import { createAtmosphere, updateAtmosphereSides } from './atmosphere.js'
 // Positions [x, y, z] : plus z est négatif, plus l'astre est loin au départ.
 // Les astres s'enroulent en slalom autour de l'axe de la caméra (un côté puis l'autre, en haut puis
 // en bas) : la centralité reste lisible, mais chaque rencontre demande un léger écart latéral.
-// L'écart au centre est de l'ordre de 2 à 3 rayons, avec des intervalles de profondeur irréguliers.
+// Les écarts x et y ci-dessous sont multipliés par SPREAD pour occuper toute la largeur et la hauteur
+// de l'écran, avec des intervalles de profondeur irréguliers.
 // atmosphere : options de createAtmosphere. satellites : distance au centre, en unités du monde.
 // normalMap : fichier de public/normal_maps. normalScale : intensité du relief, calibrée
 // pour une inclinaison moyenne d'environ 10° (plus faible pour Vénus et Jupiter, réglable dans le panneau).
+const SPREAD = { x: 2.2, y: 2.8 }
+
+// Astre qui frôle la caméra : centré à radius + CLEARANCE de l'axe du couloir (x = y = 0), dans la
+// direction angle (degrés, 0 = droite, 90 = haut). Position finale, non multipliée par SPREAD :
+// la surface passe à CLEARANCE de la caméra sans jamais traverser le plan proche. On entre dans
+// l'espace par un jambage du « 0 » (x ≈ ±1.4) : la clairance inclut ce décalage.
+const CLEARANCE = 3
+function flyby(radius, angle, z) {
+  const distance = radius + CLEARANCE
+  const theta = THREE.MathUtils.degToRad(angle)
+  return { radius, position: [Math.cos(theta) * distance, Math.sin(theta) * distance, z], spread: false }
+}
+
+// Astres groupés autour du « 404 », juste derrière la fenêtre (plan z = 18) : vus à travers les
+// chiffres dès l'arrivée. Positions finales, non multipliées par SPREAD ; ils restent à plus de
+// rayon + 1.5 de la trajectoire de plongée (x = ±1.4, y = 0).
+const AROUND_404 = [
+  // Derrière le 4 de gauche et celui de droite (centres des chiffres à x = ±4.7).
+  { name: 'Derrière 4 gauche', file: 'mars_texture.jpg', normalMap: 'mars_map.jpg', normalScale: 0.8, radius: 1.6, position: [-4.7, 0, 12], spread: false },
+  { name: 'Derrière 4 droite', file: 'fictional4_texture.jpg', normalMap: 'fictional4_map.jpg', normalScale: 0.7, radius: 1.4, position: [4.7, 0.3, 11], spread: false },
+  { name: 'Autour 1', file: 'fictional5_texture.jpg', normalMap: 'fictional5_map.jpg', normalScale: 1.1, radius: 2.2, position: [-10, 5, 10], spread: false },
+  { name: 'Autour 2', file: 'fictional6_texture.jpg', normalMap: 'fictional6_map.jpg', normalScale: 0.65, radius: 2, position: [10, -5, 9], spread: false },
+  { name: 'Autour 3', file: 'ganymede_texture.jpg', normalMap: 'ganymede_map.jpg', normalScale: 0.9, radius: 1, position: [8.5, 5.5, 13], spread: false },
+  { name: 'Autour 4', file: 'io_texture.jpg', normalMap: 'io_map.jpg', normalScale: 0.95, radius: 1.3, position: [-8.5, -5.5, 13], spread: false },
+  { name: 'Autour 5', file: 'fiction1_texture.jpg', normalMap: 'fictional1_map.jpg', normalScale: 0.85, radius: 1.8, position: [0.5, 7, 8], spread: false },
+  { name: 'Autour 6', file: 'callisto_texture.jpg', normalMap: 'callisto_map.jpg', normalScale: 0.9, radius: 1.5, position: [-0.5, -7.5, 10], spread: false },
+  { name: 'Autour 7', file: 'fictif2_texture.jpg', normalMap: 'fictional2_map.jpg', normalScale: 0.8, radius: 3, position: [-16, 0.5, 5], spread: false },
+  { name: 'Autour 8', file: 'fictional3_texture.jpg', normalMap: 'fictional3_map.jpg', normalScale: 1, radius: 2.5, position: [16, 1, 3], spread: false },
+]
+
 export const PLANETS = [
+  ...AROUND_404,
   { name: 'Lune', file: 'lune_texture.jpg', normalMap: 'lune_map.jpg', normalScale: 1, radius: 0.8, position: [-2.7, 1.5, 5] },
   {
     name: 'Planète fictive', file: 'fiction1_texture.jpg', normalMap: 'fictional1_map.jpg', normalScale: 0.85,
@@ -64,6 +96,10 @@ export const PLANETS = [
     radius: 16, position: [42, -16, -815],
     atmosphere: { color: '#a8d8ff', intensity: 0.8, thickness: 0.03 },
   },
+  // Passages rapprochés, sans atmosphère : la clairance ne dépend que du rayon.
+  { name: 'Frôleuse 1', file: 'callisto_texture.jpg', normalMap: 'callisto_map.jpg', normalScale: 0.9, ...flyby(2.5, 35, -160) },
+  { name: 'Frôleuse 2', file: 'io_texture.jpg', normalMap: 'io_map.jpg', normalScale: 0.95, ...flyby(1.8, 215, -370) },
+  { name: 'Frôleuse 3', file: 'europa_texture.jpg', normalMap: 'europa_map.jpg', normalScale: 0.9, ...flyby(3.5, 130, -660) },
 ]
 
 // Terminateur : la face nocturne reste noire, mais la lumière s'y éteint en douceur.
@@ -103,11 +139,10 @@ function darkenNightSide(material) {
 
 // Défilement infini : le couloir se répète tous les LOOP_LENGTH. Aucun astre n'est créé ni détruit :
 // un système passé derrière la caméra (à plus de BEHIND) est replacé LOOP_LENGTH plus loin devant,
-// et apparaît en grossissant sur FADE unités pour ne pas surgir à l'horizon. Une répétition sur deux
-// est inversée en x pour que le motif ne saute pas aux yeux.
+// à pleine taille : il surgit à près de 1000 unités, là où le brouillard (fog.js) le cache encore.
+// Une répétition sur deux est inversée en x pour que le motif ne saute pas aux yeux.
 export const LOOP_LENGTH = 1100
 const BEHIND = 120
-const FADE = 80
 
 export function createPlanets({ scene, renderer, sun }) {
   // Une géométrie commune, avec une taille et une texture propres à chaque astre.
@@ -153,10 +188,11 @@ export function createPlanets({ scene, renderer, sun }) {
     return mesh
   }
 
-  const planets = PLANETS.map(({ position, satellites = [], orbitSpeed = 1, ...body }) => {
+  const planets = PLANETS.map(({ position, spread = true, satellites = [], orbitSpeed = 1, ...body }) => {
     // Le système porte l'inclinaison aléatoire de l'axe, partagée par le plan orbital des satellites.
     const system = new THREE.Group()
-    system.position.set(...position)
+    const base = spread ? [position[0] * SPREAD.x, position[1] * SPREAD.y, position[2]] : position
+    system.position.set(...base)
     system.rotation.set(THREE.MathUtils.randFloatSpread(0.8), 0, THREE.MathUtils.randFloatSpread(0.8))
     system.add(createBody(body))
     for (const satellite of satellites) {
@@ -170,7 +206,7 @@ export function createPlanets({ scene, renderer, sun }) {
       orbits.push({ orbit, speed: 0.15 * orbitSpeed * Math.pow(body.radius / satellite.distance, 1.5) })
     }
     scene.add(system)
-    systems.push({ system, base: position, loop: 0 })
+    systems.push({ system, base, loop: 0 })
     return { center: system.position, radius: body.radius }
   })
 
@@ -187,9 +223,6 @@ export function createPlanets({ scene, renderer, sun }) {
           entry.loop = loop
           entry.system.position.set(loop % 2 ? -x : x, y, z + loop * LOOP_LENGTH)
         }
-        const appear = THREE.MathUtils.smoothstep(LOOP_LENGTH - BEHIND - (cameraZ - entry.system.position.z), 0, FADE)
-        entry.system.visible = appear > 0.001
-        entry.system.scale.setScalar(Math.max(appear, 0.001))
       }
       updateAtmosphereSides(atmospheres, camera)
     },

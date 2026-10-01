@@ -67,12 +67,12 @@ export function createNavigation({ camera, domElement, app, reducedMotion }) {
     }, options)
   }
 
-  // Replace la caméra sur l'axe à la profondeur z, vue recentrée (par défaut : le point de départ).
-  function reset(z = homeZ) {
+  // Replace la caméra à la profondeur z (par défaut : le point de départ, sur l'axe), vue droit devant.
+  function reset(z = homeZ, x = 0, y = 0) {
     targetZ = z
     velocity = 0
-    camera.position.set(0, 0, z)
-    controls.target.set(0, 0, z - homeZ)
+    camera.position.set(x, y, z)
+    controls.target.set(x, y, z - homeZ)
     controls.update()
   }
 

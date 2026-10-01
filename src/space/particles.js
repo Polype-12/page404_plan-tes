@@ -22,7 +22,7 @@ export function createParticles(scene, planets) {
     const position = new THREE.Vector3()
     for (let i = 0; i < 500; i++) {
       const nearby = i < 75
-      const spread = nearby ? 35 : 200
+      const spread = nearby ? 70 : 400
       do {
         position.set(
           THREE.MathUtils.randFloatSpread(spread * 2),

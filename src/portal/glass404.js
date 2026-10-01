@@ -48,16 +48,23 @@ function createFour() {
   return shape
 }
 
+// Chanfrein fin et plat (un seul segment), courbes allégées : peu de triangles.
 const extrusion = {
   depth: DEPTH,
-  curveSegments: 32,
+  curveSegments: 12,
   bevelEnabled: true,
-  bevelThickness: 0.14,
-  bevelSize: 0.12,
-  bevelSegments: 6,
+  bevelThickness: 0.05,
+  bevelSize: 0.04,
+  bevelSegments: 1,
 }
 
-export function createGlass404() {
+// windowMaterial : matériau de toutes les faces (faces planes, flancs et chanfrein) : la fenêtre.
+// Par-dessus, une peau de verre (même géométrie) n'ajoute que ses reflets : sa couleur est noire et
+// elle est mélangée en additif, l'espace reste visible au travers. Indice de réfraction élevé et pas
+// de vernis : la face avant reflète presque autant que les flancs vus en biais.
+export const GLASS = { reflections: 0.3 }
+
+export function createGlass404(windowMaterial) {
   const group = new THREE.Group()
   const glyphs = [createFour(), createZero(), createFour()]
   const geometries = glyphs.map((shape, index) => {
@@ -67,30 +74,46 @@ export function createGlass404() {
   })
   // Le centre du « 0 » (au milieu) devient l'origine : c'est là que la caméra plonge.
   const centerX = DIGIT_WIDTH + GAP + DIGIT_WIDTH / 2
-  // Pas de transmission (coûteuse : rendu supplémentaire de la scène) : le verre est un matériau
-  // noir en mélange additif. Il ne fait qu'ajouter ses reflets sur l'espace visible derrière.
   const material = new THREE.MeshPhysicalMaterial({
     color: '#000000',
     metalness: 0,
-    roughness: 0,
-    clearcoat: 0.15,
-    clearcoatRoughness: 0,
-    envMapIntensity: 0.6,
+    roughness: 0.05,
+    ior: 2.33,
+    envMapIntensity: GLASS.reflections,
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
+    // Même surface que la fenêtre : décalage de profondeur vers la caméra, sans quoi les deux
+    // matériaux (calculs de position différents) se disputent les pixels.
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -4,
   })
+  const scale = 1.5
+  const bounds = new THREE.Box3()
   for (const geometry of geometries) {
     geometry.translate(-centerX, -DIGIT_HEIGHT / 2, -DEPTH / 2)
-    group.add(new THREE.Mesh(geometry, material))
+    geometry.computeBoundingBox()
+    bounds.union(geometry.boundingBox)
+    const mesh = new THREE.Mesh(geometry, windowMaterial)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    // Dessinée après la fenêtre, juste devant elle (voir polygonOffset).
+    const skin = new THREE.Mesh(geometry, material)
+    skin.renderOrder = 1
+    group.add(mesh, skin)
   }
-  group.scale.setScalar(1.5)
+  group.scale.setScalar(scale)
 
   return {
     group,
     material,
-    baseEnvIntensity: material.envMapIntensity,
-    baseClearcoat: material.clearcoat,
+    // Profondeur de la face avant (le plan de la fenêtre), en unités du monde.
+    frontZ: bounds.max.z * scale,
+    // Bas des chiffres (biseau compris) : le sol y affleure.
+    bottomY: bounds.min.y * scale,
+    // Milieu des jambages gauche et droit du « 0 » : là où la caméra plonge (x = ±entryX, y = 0).
+    entryX: (DIGIT_WIDTH / 2 - STROKE / 2) * scale,
     dispose() {
       for (const geometry of geometries) geometry.dispose()
       material.dispose()
