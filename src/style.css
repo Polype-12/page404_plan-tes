@@ -24,23 +24,37 @@ canvas:active {
   cursor: grabbing;
 }
 
+/* Lien discret sur le fond blanc du « 404 » : texte noir souligné, sans contour. */
 #home {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 8px 20px;
+  padding: 8px 4px;
   font: 14px/1 system-ui, sans-serif;
   letter-spacing: 0.08em;
-  color: #fff;
-  background: #000;
-  border: 1px solid #fff;
-  border-radius: 999px;
+  color: #000;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
   cursor: pointer;
+  transition: opacity 0.3s, visibility 0.3s;
 }
 
-#home:hover,
+#home:hover {
+  text-decoration-thickness: 2px;
+}
+
 #home:focus-visible {
-  color: #000;
-  background: #fff;
+  outline: 1px solid #000;
+  outline-offset: 2px;
+}
+
+/* Masqué dans l'espace et en fin de plongée, quand le fond blanc a disparu. */
+#home.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }

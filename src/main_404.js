@@ -28,6 +28,8 @@ const CURVE_HANDLE = 0.45
 const ENTER = 0.3
 const EXIT = 0.35
 const HOME_DURATION = 1.6
+// Avancement de la plongée au-delà duquel le bouton « Retour » disparaît.
+const HIDE_BUTTON = 0.6
 
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -240,6 +242,8 @@ renderer.setAnimationLoop((time) => {
   postprocessing.render(delta)
   renderer.clippingPlanes = []
   portal.render(mode === 'space', dive)
+  // Le bouton n'a de sens que devant le « 404 » sur fond blanc.
+  homeButton.classList.toggle('is-hidden', mode === 'space' || dive > HIDE_BUTTON)
 })
 
 if (import.meta.hot) {
