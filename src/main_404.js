@@ -7,6 +7,7 @@ import { createParticles } from './space/particles.js'
 import { createNavigation } from './space/navigation.js'
 import { createPostprocessing } from './space/postprocessing.js'
 import { createFog } from './space/fog.js'
+import { createGalaxy } from './space/galaxy.js'
 import { createDebugPane } from './space/debug.js'
 import { createPortal } from './portal/portal.js'
 
@@ -48,6 +49,7 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 // Espace : toujours rendu dans une texture, vue à travers les chiffres puis plein écran.
 const spaceScene = new THREE.Scene()
 const fog = createFog(spaceScene)
+const galaxy = createGalaxy(renderer, spaceScene)
 const spaceCamera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 1200)
 spaceCamera.position.set(0, 0, SPACE_HOME_Z)
 const sun = createSun(spaceScene)
@@ -63,7 +65,7 @@ const windowClip = [new THREE.Plane(new THREE.Vector3(0, 0, -1), SPACE_HOME_Z)]
 const portalCamera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 100)
 portalCamera.position.set(0, 0, PORTAL_DISTANCE)
 const portal = createPortal({ renderer, camera: portalCamera, getSpaceTexture: () => postprocessing.texture })
-const debugPane = createDebugPane(postprocessing.bloom, planets.reliefMaterials, fog, portal.glass)
+const debugPane = createDebugPane(postprocessing.bloom, planets.reliefMaterials, fog, portal.glass, galaxy)
 const spaceOffset = SPACE_HOME_Z - portal.frontZ
 // OrbitControls déplace une caméra témoin, toujours tournée vers le centre ; la caméra rendue la copie
 // au loin, puis s'en écarte le long de la courbe de plongée (voir placePortalCamera).
@@ -256,6 +258,7 @@ if (import.meta.hot) {
     portal.dispose()
     navigation.dispose()
     postprocessing.dispose()
+    galaxy.dispose()
     particles.dispose()
     planets.dispose()
     sun.dispose()

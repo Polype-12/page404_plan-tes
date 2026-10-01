@@ -3,6 +3,7 @@ import * as THREE from 'three'
 // Brouillard exponentiel : les astres lointains se fondent dans la couleur du brouillard.
 // density : quantité de brouillard (0 = espace clair). sky : part de la couleur du brouillard
 // dans le fond (1 = le ciel est entièrement noyé, cohérent avec les astres les plus lointains).
+// Quand le fond est une texture (galaxy.js), le brouillard ne le touche pas : sky n'a plus d'effet.
 export const FOG = { color: '#000000', density: 0.0025, sky: 1 }
 
 export function createFog(scene) {
@@ -17,7 +18,7 @@ export function createFog(scene) {
     fog.density = settings.density
     // Sans brouillard, le fond reste noir quelle que soit la part du ciel.
     const amount = settings.density > 0 ? settings.sky : 0
-    scene.background.copy(black).lerp(fog.color, amount)
+    if (scene.background?.isColor) scene.background.copy(black).lerp(fog.color, amount)
   }
   apply()
 

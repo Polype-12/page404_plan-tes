@@ -2,7 +2,7 @@ import { Pane } from 'tweakpane'
 
 // Panneau de réglage du halo : chaque modification est journalisée,
 // prête à être recopiée comme valeur par défaut de BLOOM dans postprocessing.js.
-export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass = null) {
+export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass = null, galaxy = null) {
   const pane = new Pane({ title: 'Glow' })
   pane.addBinding(bloom, 'strength', { min: 0, max: 3, step: 0.01 })
   pane.addBinding(bloom, 'radius', { min: 0, max: 1, step: 0.01 })
@@ -15,6 +15,24 @@ export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass =
       .on('change', (event) => {
         if (event.last) console.log(`const GLASS = { reflections: ${event.value} }`)
       })
+  }
+
+  // Fond galactique, à recopier comme valeur par défaut de GALAXY dans galaxy.js.
+  // La texture est recalculée à chaque changement (quelques millisecondes).
+  if (galaxy) {
+    const folder = pane.addFolder({ title: 'Galaxy', expanded: false })
+    const { settings } = galaxy
+    folder.addBinding(settings, 'brightness', { label: 'luminosité', min: 0, max: 0.3, step: 0.005 })
+    folder.addBinding(settings, 'tilt', { label: 'inclinaison', min: -1.57, max: 1.57, step: 0.01 })
+    folder.addBinding(settings, 'width', { label: 'largeur', min: 0.05, max: 0.6, step: 0.01 })
+    folder.addBinding(settings, 'dust', { label: 'poussière', min: 0, max: 1, step: 0.01 })
+    folder.addBinding(settings, 'stars', { label: 'étoiles', min: 0, max: 4, step: 0.05 })
+    folder.addBinding(settings, 'cool', { label: 'teinte' })
+    folder.addBinding(settings, 'warm', { label: 'bulbe' })
+    folder.on('change', (event) => {
+      galaxy.bake()
+      if (event.last) console.log(`const GALAXY = ${JSON.stringify(settings)}`)
+    })
   }
 
   // Brouillard, à recopier comme valeur par défaut de FOG dans fog.js.
