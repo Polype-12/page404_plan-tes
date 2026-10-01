@@ -29,7 +29,17 @@ export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass =
     folder.addBinding(settings, 'stars', { label: 'étoiles', min: 0, max: 4, step: 0.05 })
     folder.addBinding(settings, 'cool', { label: 'teinte' })
     folder.addBinding(settings, 'warm', { label: 'bulbe' })
+    folder.addBinding(settings, 'splatIntensity', { label: 'galaxie', min: 0, max: 1.5, step: 0.01 })
+    folder.addBinding(settings, 'splatSize', { label: 'taille (°)', min: 5, max: 120, step: 1 })
+    folder.addBinding(settings, 'splatYaw', { label: 'direction x', min: -3.14, max: 3.14, step: 0.01 })
+    folder.addBinding(settings, 'splatPitch', { label: 'direction y', min: -1.4, max: 1.4, step: 0.01 })
+    folder.addBinding(settings, 'splatTilt', { label: 'inclinaison galaxie', min: -3.14, max: 3.14, step: 0.01 })
+    folder.addBinding(settings, 'splatSpin', { label: 'rotation', min: -3.14, max: 3.14, step: 0.01 })
+    folder.addBinding(settings, 'splatTint', { label: 'teinte galaxie' })
+    // Déplacer la galaxie impose un nouveau tri (~0,1 s) : recuit seulement en fin de geste.
+    const moves = ['splatSize', 'splatYaw', 'splatPitch', 'splatTilt', 'splatSpin']
     folder.on('change', (event) => {
+      if (!event.last && moves.includes(event.target.key)) return
       galaxy.bake()
       if (event.last) console.log(`const GALAXY = ${JSON.stringify(settings)}`)
     })

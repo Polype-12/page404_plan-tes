@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { loadSplatGalaxy } from './splat-galaxy.js'
 
 // Fond de l'espace : une seule bande galactique très sombre, vue par la tranche, qui traverse le ciel
 // en biais. Nuages doux, couloirs de poussière plus sombres, bulbe un peu plus chaud d'un côté et
@@ -9,15 +10,30 @@ import * as THREE from 'three'
 // tilt : inclinaison de la bande à l'écran (radians). width : épaisseur angulaire de la bande.
 // dust : opacité des couloirs de poussière. stars : densité de la poussière d'étoiles.
 // cool / warm : teintes de la bande et du bulbe.
+// splat… : galaxie en gaussian splatting (splat-galaxy.js), cuite dans le même fond, donc toujours
+// derrière les astres. splatIntensity : luminosité (rester bas pour ne pas concurrencer les planètes).
+// splatSize : diamètre apparent (degrés). splatYaw / splatPitch : direction dans le ciel (radians,
+// 0 = droit devant, vers -z). splatTilt / splatSpin : inclinaison et rotation du disque.
+// splatTint : teinte multipliée aux couleurs du fichier.
 export const GALAXY = {
-  brightness: 0.015,
-  tilt: 0.55,
-  width: 0.2,
-  dust: 0.75,
+  brightness: 0.005,
+  tilt: 0.99,
+  width: 0.29,
+  dust: 0.67,
   stars: 0.7,
   cool: '#354467',
   warm: '#9aa3c2',
+  splatIntensity: 0.03,
+  splatSize: 84,
+  splatYaw: -0.61,
+  splatPitch: 0.2,
+  splatTilt: 1.05,
+  splatSpin: -0.27,
+  splatTint: '#c6d4ff',
 }
+const SPLAT_URL = 'galaxy/galaxy.compressed.ply'
+// Distance de la galaxie au point de vue de la cuisson : dans la sphère du ciel (rayon 10).
+const SPLAT_DISTANCE = 6
 const RESOLUTION = 1024
 
 const vertexShader = /* glsl */ `
@@ -117,6 +133,45 @@ export function createGalaxy(renderer, scene) {
   const cubeCamera = new THREE.CubeCamera(1, 100, target)
   scene.background = target.texture
 
+  // La galaxie arrive après coup (fichier de 9 Mo, décodé dans un worker) : le fond est recuit dès
+  // qu'elle est prête, puis après chaque nouveau tri.
+  let ready = false
+  const pivot = new THREE.Group()
+  skyScene.add(pivot)
+  let placement = ''
+  const splat = loadSplatGalaxy(`${import.meta.env.BASE_URL}${SPLAT_URL}`, { onSorted: () => bake() })
+  splat.setResolution(RESOLUTION)
+  pivot.add(splat.mesh)
+  let radius = 1
+  splat.loaded.then(({ center, radius: loadedRadius }) => {
+    splat.mesh.position.copy(center).negate()
+    radius = loadedRadius
+    ready = true
+    bake()
+  }).catch((error) => console.error(error))
+
+  function placeSplat() {
+    const { splatSize, splatYaw, splatPitch, splatTilt, splatSpin } = settings
+    pivot.position.set(
+      Math.sin(splatYaw) * Math.cos(splatPitch),
+      Math.sin(splatPitch),
+      -Math.cos(splatYaw) * Math.cos(splatPitch),
+    ).multiplyScalar(SPLAT_DISTANCE)
+    // Les scènes 3DGS sont « y vers le bas » : demi-tour autour de x, puis inclinaison du disque.
+    pivot.rotation.set(Math.PI + splatTilt, splatSpin, 0, 'YXZ')
+    pivot.scale.setScalar(SPLAT_DISTANCE * Math.tan(THREE.MathUtils.degToRad(splatSize / 2)) / radius)
+    // Le tri (le plus coûteux, dans le worker) n'est refait que si la galaxie a bougé ; la cuisson
+    // suivante arrive avec onSorted.
+    const key = [splatSize, splatYaw, splatPitch, splatTilt, splatSpin].join()
+    if (key !== placement) {
+      placement = key
+      splat.requestSort()
+    }
+    const { uniforms: splatUniforms } = splat.mesh.material
+    splatUniforms.uIntensity.value = settings.splatIntensity
+    splatUniforms.uTint.value.set(settings.splatTint)
+  }
+
   function bake() {
     uniforms.uBrightness.value = settings.brightness
     uniforms.uWidth.value = settings.width
@@ -130,6 +185,7 @@ export function createGalaxy(renderer, scene) {
     // Bulbe : dans le plan, en avant et sur le côté.
     const core = uniforms.uCore.value.set(-0.6, 0, -1)
     core.addScaledVector(normal, -core.dot(normal)).normalize()
+    if (ready) placeSplat()
     cubeCamera.update(renderer, skyScene)
   }
   bake()
@@ -138,6 +194,7 @@ export function createGalaxy(renderer, scene) {
     settings,
     bake,
     dispose() {
+      splat.dispose()
       target.dispose()
       sky.geometry.dispose()
       sky.material.dispose()
