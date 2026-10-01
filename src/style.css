@@ -24,32 +24,97 @@ canvas:active {
   cursor: grabbing;
 }
 
-/* Lien discret sur le fond blanc du « 404 » : texte noir souligné, sans contour. */
+/* Curseur d'amarrage : le satellite (poignée) glisse sur des pointillés jusqu'à la planète ; les
+   points qu'il a dépassés disparaissent. --progress (0 à 1) est tenu à jour par dock-slider.js. */
 #home {
+  --dock-size: 40px;
+  --progress: 0;
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 8px 4px;
-  font: 14px/1 system-ui, sans-serif;
-  letter-spacing: 0.08em;
-  color: #000;
-  background: none;
-  border: none;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
   transition: opacity 0.3s, visibility 0.3s;
 }
 
-#home:hover {
-  text-decoration-thickness: 2px;
+.dock-track {
+  position: relative;
 }
 
-#home:focus-visible {
+/* Points ancrés à droite : seule leur limite gauche suit le centre du satellite. */
+.dock-dots {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: calc(var(--dock-size) / 2 + (100% - var(--dock-size)) * var(--progress));
+  height: 4px;
+  transform: translateY(-50%);
+  background: radial-gradient(circle, #000 1.2px, transparent 1.6px) right center / 8px 4px repeat-x;
+  pointer-events: none;
+}
+
+.dock-input {
+  position: relative;
+  display: block;
+  width: 160px;
+  height: var(--dock-size);
+  margin: 0;
+  background: none;
+  cursor: grab;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.dock-input:active {
+  cursor: grabbing;
+}
+
+.dock-input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: transparent;
+}
+
+.dock-input::-moz-range-track {
+  height: 1px;
+  background: transparent;
+}
+
+.dock-input::-webkit-slider-thumb {
+  width: var(--dock-size);
+  height: var(--dock-size);
+  /* Centre la poignée sur le trait de 1px. */
+  margin-top: calc(var(--dock-size) / -2);
+  background: url('/satelite.svg') center / contain no-repeat;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.dock-input::-moz-range-thumb {
+  width: var(--dock-size);
+  height: var(--dock-size);
+  background: url('/satelite.svg') center / contain no-repeat;
+  border: none;
+  border-radius: 0;
+}
+
+.dock-input:focus-visible {
   outline: 1px solid #000;
-  outline-offset: 2px;
+  outline-offset: 4px;
+}
+
+.dock-planet {
+  width: 34px;
+  height: 34px;
+  margin-left: 4px;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+/* Amarré : la planète accueille le satellite d'une petite pulsation. */
+#home.is-docked .dock-planet {
+  transform: scale(1.15);
 }
 
 /* Masqué dans l'espace et en fin de plongée, quand le fond blanc a disparu. */

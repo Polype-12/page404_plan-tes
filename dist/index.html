@@ -5,13 +5,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Planètes</title>
-  <script type="module" crossorigin src="/assets/index-Lw6BoD9u.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CRHa-jtt.css">
+  <script type="module" crossorigin src="/assets/index-tuN87Osh.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-ce4EXYW8.css">
 </head>
 
 <body>
   <main id="app"></main>
-  <button id="home" type="button">Retour</button>
+  <div id="home" class="dock">
+    <div class="dock-track">
+      <div class="dock-dots" aria-hidden="true"></div>
+      <input class="dock-input" type="range" min="0" max="100" step="1" value="0"
+        aria-label="Faire glisser le satellite jusqu'à la planète" />
+    </div>
+    <img class="dock-planet" src="/terre.svg" alt="" />
+  </div>
 </body>
 
 </html>

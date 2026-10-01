@@ -10,9 +10,12 @@ import { createFog } from './space/fog.js'
 import { createGalaxy } from './space/galaxy.js'
 import { createDebugPane } from './space/debug.js'
 import { createPortal } from './portal/portal.js'
+import { createDockSlider } from './ui/dock-slider.js'
 
 const app = document.querySelector('#app')
 const homeButton = document.querySelector('#home')
+// Pour l'instant, l'amarrage n'amène nulle part (goHome reste prêt à y être branché).
+const dockSlider = createDockSlider(homeButton)
 
 // Le plan de la fenêtre (face avant du « 404 ») correspond à la profondeur SPACE_HOME_Z de l'espace :
 // la caméra de l'espace est la caméra du portail, décalée en z. Rien de l'espace ne dépasse ce plan.
@@ -29,7 +32,7 @@ const CURVE_HANDLE = 0.45
 const ENTER = 0.3
 const EXIT = 0.35
 const HOME_DURATION = 1.6
-// Avancement de la plongée au-delà duquel le bouton « Retour » disparaît.
+// Avancement de la plongée au-delà duquel le curseur d'amarrage disparaît.
 const HIDE_BUTTON = 0.6
 
 const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -162,7 +165,6 @@ function goHome() {
   portalControls.enabled = false
   homingFrom.copy(orbitCamera.position)
 }
-homeButton.addEventListener('click', goHome)
 
 // Garder un angle de base sur le petit côté sans déplacer la caméra.
 function applyFov(camera, baseFov, aspect) {
@@ -244,14 +246,14 @@ renderer.setAnimationLoop((time) => {
   postprocessing.render(delta)
   renderer.clippingPlanes = []
   portal.render(mode === 'space', dive)
-  // Le bouton n'a de sens que devant le « 404 » sur fond blanc.
+  // Le curseur n'a de sens que devant le « 404 » sur fond blanc.
   homeButton.classList.toggle('is-hidden', mode === 'space' || dive > HIDE_BUTTON)
 })
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     resizeObserver.disconnect()
-    homeButton.removeEventListener('click', goHome)
+    dockSlider.dispose()
     renderer.setAnimationLoop(null)
     debugPane.dispose()
     portalControls.dispose()

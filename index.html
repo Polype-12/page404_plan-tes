@@ -9,7 +9,14 @@
 
 <body>
   <main id="app"></main>
-  <button id="home" type="button">Retour</button>
+  <div id="home" class="dock">
+    <div class="dock-track">
+      <div class="dock-dots" aria-hidden="true"></div>
+      <input class="dock-input" type="range" min="0" max="100" step="1" value="0"
+        aria-label="Faire glisser le satellite jusqu'à la planète" />
+    </div>
+    <img class="dock-planet" src="/terre.svg" alt="" />
+  </div>
   <script type="module" src="/src/main_404.js"></script>
 </body>
 
