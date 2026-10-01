@@ -236,7 +236,7 @@ renderer.setAnimationLoop((time) => {
   }
 
   planets.update(reducedMotion.matches ? 0 : delta, spaceCamera)
-  particles.update(spaceCamera)
+  particles.update(spaceCamera, reducedMotion.matches ? 0 : time / 1000)
   sun.follow(spaceCamera)
   renderer.clippingPlanes = mode === 'portal' ? windowClip : []
   postprocessing.render(delta)

@@ -24,19 +24,20 @@ function flyby(radius, angle, z) {
 
 // Astres groupés autour du « 404 », juste derrière la fenêtre (plan z = 18) : vus à travers les
 // chiffres dès l'arrivée. Positions finales, non multipliées par SPREAD ; ils restent à plus de
-// rayon + 1.5 de la trajectoire de plongée (x = ±1.4, y = 0).
+// rayon + 1.5 de la trajectoire de plongée (x = ±1.4, y = 0). Ce groupe n'existe qu'au premier
+// passage : aux répétitions suivantes du couloir, chacun est dispersé ailleurs (voir scatter).
 const AROUND_404 = [
   // Derrière le 4 de gauche et celui de droite (centres des chiffres à x = ±4.7).
-  { name: 'Derrière 4 gauche', file: 'mars_texture.jpg', normalMap: 'mars_map.jpg', normalScale: 0.8, radius: 1.6, position: [-4.7, 0, 12], spread: false },
-  { name: 'Derrière 4 droite', file: 'fictional4_texture.jpg', normalMap: 'fictional4_map.jpg', normalScale: 0.7, radius: 1.4, position: [4.7, 0.3, 11], spread: false },
-  { name: 'Autour 1', file: 'fictional5_texture.jpg', normalMap: 'fictional5_map.jpg', normalScale: 1.1, radius: 2.2, position: [-10, 5, 10], spread: false },
-  { name: 'Autour 2', file: 'fictional6_texture.jpg', normalMap: 'fictional6_map.jpg', normalScale: 0.65, radius: 2, position: [10, -5, 9], spread: false },
-  { name: 'Autour 3', file: 'ganymede_texture.jpg', normalMap: 'ganymede_map.jpg', normalScale: 0.9, radius: 1, position: [8.5, 5.5, 13], spread: false },
-  { name: 'Autour 4', file: 'io_texture.jpg', normalMap: 'io_map.jpg', normalScale: 0.95, radius: 1.3, position: [-8.5, -5.5, 13], spread: false },
-  { name: 'Autour 5', file: 'fiction1_texture.jpg', normalMap: 'fictional1_map.jpg', normalScale: 0.85, radius: 1.8, position: [0.5, 7, 8], spread: false },
-  { name: 'Autour 6', file: 'callisto_texture.jpg', normalMap: 'callisto_map.jpg', normalScale: 0.9, radius: 1.5, position: [-0.5, -7.5, 10], spread: false },
-  { name: 'Autour 7', file: 'fictif2_texture.jpg', normalMap: 'fictional2_map.jpg', normalScale: 0.8, radius: 3, position: [-16, 0.5, 5], spread: false },
-  { name: 'Autour 8', file: 'fictional3_texture.jpg', normalMap: 'fictional3_map.jpg', normalScale: 1, radius: 2.5, position: [16, 1, 3], spread: false },
+  { name: 'Derrière 4 gauche', file: 'mars_texture.jpg', normalMap: 'mars_map.jpg', normalScale: 0.8, radius: 1.6, position: [-4.7, 0, 12], spread: false, around404: true },
+  { name: 'Derrière 4 droite', file: 'fictional4_texture.jpg', normalMap: 'fictional4_map.jpg', normalScale: 0.7, radius: 1.4, position: [4.7, 0.3, 11], spread: false, around404: true },
+  { name: 'Autour 1', file: 'fictional5_texture.jpg', normalMap: 'fictional5_map.jpg', normalScale: 1.1, radius: 2.2, position: [-10, 5, 10], spread: false, around404: true },
+  { name: 'Autour 2', file: 'fictional6_texture.jpg', normalMap: 'fictional6_map.jpg', normalScale: 0.65, radius: 2, position: [10, -5, 9], spread: false, around404: true },
+  { name: 'Autour 3', file: 'ganymede_texture.jpg', normalMap: 'ganymede_map.jpg', normalScale: 0.9, radius: 1, position: [8.5, 5.5, 13], spread: false, around404: true },
+  { name: 'Autour 4', file: 'io_texture.jpg', normalMap: 'io_map.jpg', normalScale: 0.95, radius: 1.3, position: [-8.5, -5.5, 13], spread: false, around404: true },
+  { name: 'Autour 5', file: 'fiction1_texture.jpg', normalMap: 'fictional1_map.jpg', normalScale: 0.85, radius: 1.8, position: [0.5, 7, 8], spread: false, around404: true },
+  { name: 'Autour 6', file: 'callisto_texture.jpg', normalMap: 'callisto_map.jpg', normalScale: 0.9, radius: 1.5, position: [-0.5, -7.5, 10], spread: false, around404: true },
+  { name: 'Autour 7', file: 'fictif2_texture.jpg', normalMap: 'fictional2_map.jpg', normalScale: 0.8, radius: 3, position: [-16, 0.5, 5], spread: false, around404: true },
+  { name: 'Autour 8', file: 'fictional3_texture.jpg', normalMap: 'fictional3_map.jpg', normalScale: 1, radius: 2.5, position: [16, 1, 3], spread: false, around404: true },
 ]
 
 export const PLANETS = [
@@ -144,6 +145,28 @@ function darkenNightSide(material) {
 export const LOOP_LENGTH = 1100
 const BEHIND = 120
 
+// Place dispersée d'un astre du groupe du « 404 » pour les répétitions suivantes du couloir : les
+// profondeurs sont réparties en tranches régulières (avec un jeu), l'écart à l'axe est tiré au hasard,
+// loin de la trajectoire, et chaque place évite les autres astres (profondeurs comparées modulo
+// LOOP_LENGTH, comme dans le couloir).
+function scatter(index, count, radius, taken) {
+  const place = new THREE.Vector3()
+  const other = new THREE.Vector3()
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const angle = Math.random() * Math.PI * 2
+    const distance = THREE.MathUtils.randFloat(radius + 6, 55)
+    const z = -LOOP_LENGTH * (index + THREE.MathUtils.randFloat(0.25, 0.75)) / count
+    place.set(Math.cos(angle) * distance, Math.sin(angle) * distance, z)
+    const free = taken.every(({ position, radius: otherRadius }) => {
+      other.fromArray(position)
+      other.z = place.z + THREE.MathUtils.euclideanModulo(other.z - place.z + LOOP_LENGTH / 2, LOOP_LENGTH) - LOOP_LENGTH / 2
+      return place.distanceTo(other) > radius + otherRadius + 12
+    })
+    if (free) break
+  }
+  return place.toArray()
+}
+
 export function createPlanets({ scene, renderer, sun }) {
   // Une géométrie commune, avec une taille et une texture propres à chaque astre.
   const geometry = new THREE.SphereGeometry(1, 64, 64)
@@ -153,7 +176,6 @@ export function createPlanets({ scene, renderer, sun }) {
   const orbits = []
   const reliefMaterials = []
   const systems = []
-
   function createBody({ name, file, normalMap, normalScale = 1, radius, atmosphere }) {
     const texture = textureLoader.load(`${import.meta.env.BASE_URL}${file}`)
     texture.colorSpace = THREE.SRGBColorSpace
@@ -188,7 +210,16 @@ export function createPlanets({ scene, renderer, sun }) {
     return mesh
   }
 
-  const planets = PLANETS.map(({ position, spread = true, satellites = [], orbitSpeed = 1, ...body }) => {
+  // Places de tous les astres du couloir, puis places dispersées du groupe du « 404 ».
+  // Un système à satellites occupe tout le disque de leurs orbites.
+  const taken = PLANETS.filter(({ around404 }) => !around404).map(({ position, spread = true, radius, satellites = [] }) => ({
+    position: spread ? [position[0] * SPREAD.x, position[1] * SPREAD.y, position[2]] : position,
+    radius: Math.max(radius, ...satellites.map((satellite) => satellite.distance + satellite.radius)),
+  }))
+  const aroundCount = PLANETS.filter(({ around404 }) => around404).length
+  let aroundIndex = 0
+
+  const planets = PLANETS.map(({ position, spread = true, satellites = [], orbitSpeed = 1, around404 = false, ...body }) => {
     // Le système porte l'inclinaison aléatoire de l'axe, partagée par le plan orbital des satellites.
     const system = new THREE.Group()
     const base = spread ? [position[0] * SPREAD.x, position[1] * SPREAD.y, position[2]] : position
@@ -206,9 +237,30 @@ export function createPlanets({ scene, renderer, sun }) {
       orbits.push({ orbit, speed: 0.15 * orbitSpeed * Math.pow(body.radius / satellite.distance, 1.5) })
     }
     scene.add(system)
-    systems.push({ system, base, loop: 0 })
+    let roam = null
+    if (around404) {
+      roam = scatter(aroundIndex++, aroundCount, body.radius, taken)
+      taken.push({ position: roam, radius: body.radius })
+    }
+    systems.push({ system, base, roam, loop: 0 })
     return { center: system.position, radius: body.radius }
   })
+
+  // Premier passage : la place près du « 404 ». Ensuite : la place dispersée, répétée comme le couloir,
+  // visible seulement si elle est apparue au loin après la fin du premier passage (pas de surgissement).
+  function placeAround404(entry, cameraZ) {
+    const [x, y, z] = entry.base
+    if (Math.floor((cameraZ + BEHIND - z) / LOOP_LENGTH) === 0) {
+      entry.system.position.set(x, y, z)
+      entry.system.visible = true
+      return
+    }
+    const [roamX, roamY, roamZ] = entry.roam
+    const loop = Math.floor((cameraZ + BEHIND - roamZ) / LOOP_LENGTH)
+    const depth = roamZ + loop * LOOP_LENGTH
+    entry.system.position.set(loop % 2 ? -roamX : roamX, roamY, depth)
+    entry.system.visible = depth <= z - LOOP_LENGTH
+  }
 
   return {
     planets,
@@ -218,6 +270,10 @@ export function createPlanets({ scene, renderer, sun }) {
       const cameraZ = camera.position.z
       for (const entry of systems) {
         const [x, y, z] = entry.base
+        if (entry.roam) {
+          placeAround404(entry, cameraZ)
+          continue
+        }
         const loop = Math.floor((cameraZ + BEHIND - z) / LOOP_LENGTH)
         if (loop !== entry.loop) {
           entry.loop = loop
