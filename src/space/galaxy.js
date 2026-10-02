@@ -42,6 +42,12 @@ export const GALAXY = {
   splatRoundness: 0.87,
 }
 const SPLAT_URL = 'galaxy/galaxy.compressed.ply'
+// Une fois dépassée, la galaxie est replacée devant, son centre à environ LOOP_LENGTH - rayon - 120 :
+// bien plus près que les astres (trop grande pour aller plus loin sans être coupée par le plan
+// lointain). Elle y est invisible, puis apparaît sur APPEAR_FADE unités d'avancée, comme sortie du
+// brouillard. La première galaxie, celle du départ du couloir, est entière d'emblée.
+const APPEAR_FADE = 400
+const APPEAR_MARGIN = 120
 const RESOLUTION = 1024
 
 const vertexShader = /* glsl */ `
@@ -167,8 +173,13 @@ export function createGalaxy(renderer, scene) {
     if (!ready) return
     const { galaxyX, galaxyY, galaxyZ, galaxyRadius, splatTilt, splatSpin } = settings
     // Répétition du couloir : replacée devant une fois tout son disque passé derrière la caméra.
-    const loop = Math.floor((camera.position.z + galaxyRadius + 120 - galaxyZ) / LOOP_LENGTH)
+    const loop = Math.floor((camera.position.z + galaxyRadius + APPEAR_MARGIN - galaxyZ) / LOOP_LENGTH)
     pivot.position.set(loop % 2 ? -galaxyX : galaxyX, galaxyY, galaxyZ + loop * LOOP_LENGTH)
+    // Distance à laquelle elle réapparaît (son centre, devant la caméra), puis fondu d'entrée.
+    const appearAt = LOOP_LENGTH - galaxyRadius - APPEAR_MARGIN
+    const ahead = camera.position.z - pivot.position.z
+    const appear = 1 - THREE.MathUtils.smoothstep(ahead, appearAt - APPEAR_FADE, appearAt)
+    splat.mesh.material.uniforms.uAppear.value = loop === 0 ? 1 : appear
     // Les scènes 3DGS sont « y vers le bas » : demi-tour autour de x, puis inclinaison du disque.
     pivot.rotation.set(Math.PI + splatTilt, splatSpin, 0, 'YXZ')
     pivot.scale.setScalar(galaxyRadius / radius)

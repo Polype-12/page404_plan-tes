@@ -93,6 +93,8 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   uniform float uIntensity;
   uniform vec3 uTint;
+  // Apparition de toute la galaxie (0 à 1), réglée selon sa distance par galaxy.js.
+  uniform float uAppear;
   varying vec4 vColor;
   varying vec2 vPosition;
   varying float vFade;
@@ -103,7 +105,7 @@ const fragmentShader = /* glsl */ `
     #include <clipping_planes_fragment>
     float power = -dot(vPosition, vPosition);
     if (power < -4.0) discard;
-    float alpha = exp(power) * vColor.a * vFade;
+    float alpha = exp(power) * vColor.a * vFade * uAppear;
     // Couleurs du fichier en sRGB, ramenées en linéaire puis teintées et atténuées.
     vec3 color = pow(vColor.rgb, vec3(2.2)) * uTint * uIntensity;
     // Brouillard de la scène, comme sur les astres (exponentiel ou linéaire selon scene.fog).
@@ -139,6 +141,7 @@ export function loadSplatGalaxy(url, { onSorted = () => {} } = {}) {
       uRoundness: { value: 0 },
       uIntensity: { value: 1 },
       uTint: { value: new THREE.Color() },
+      uAppear: { value: 1 },
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     },
     fog: true,
