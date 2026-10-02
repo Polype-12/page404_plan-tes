@@ -1,9 +1,14 @@
 import { Pane } from 'tweakpane'
 
+// Panneaux de réglage masqués par défaut : ajouter ?debug à l'adresse pour les afficher.
+const DEBUG = new URLSearchParams(window.location.search).has('debug')
+
 // Panneau de réglage du halo : chaque modification est journalisée,
 // prête à être recopiée comme valeur par défaut de BLOOM dans postprocessing.js.
 export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass = null, galaxy = null) {
   const pane = new Pane({ title: 'Glow' })
+  // Masqué par défaut ; ajouter ?debug à l'adresse (ex. localhost:5173/?debug) pour l'afficher.
+  pane.hidden = !DEBUG
   pane.addBinding(bloom, 'strength', { min: 0, max: 3, step: 0.01 })
   pane.addBinding(bloom, 'radius', { min: 0, max: 1, step: 0.01 })
   pane.addBinding(bloom, 'threshold', { min: 0, max: 2, step: 0.01 })
@@ -29,17 +34,8 @@ export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass =
     folder.addBinding(settings, 'stars', { label: 'étoiles', min: 0, max: 4, step: 0.05 })
     folder.addBinding(settings, 'cool', { label: 'teinte' })
     folder.addBinding(settings, 'warm', { label: 'bulbe' })
-    folder.addBinding(settings, 'splatIntensity', { label: 'galaxie', min: 0, max: 1.5, step: 0.01 })
-    folder.addBinding(settings, 'splatSize', { label: 'taille (°)', min: 5, max: 120, step: 1 })
-    folder.addBinding(settings, 'splatYaw', { label: 'direction x', min: -3.14, max: 3.14, step: 0.01 })
-    folder.addBinding(settings, 'splatPitch', { label: 'direction y', min: -1.4, max: 1.4, step: 0.01 })
-    folder.addBinding(settings, 'splatTilt', { label: 'inclinaison galaxie', min: -3.14, max: 3.14, step: 0.01 })
-    folder.addBinding(settings, 'splatSpin', { label: 'rotation', min: -3.14, max: 3.14, step: 0.01 })
-    folder.addBinding(settings, 'splatTint', { label: 'teinte galaxie' })
-    // Déplacer la galaxie impose un nouveau tri (~0,1 s) : recuit seulement en fin de geste.
-    const moves = ['splatSize', 'splatYaw', 'splatPitch', 'splatTilt', 'splatSpin']
+    // La galaxie en splats se règle dans le panneau « 404 » (createPortalPane).
     folder.on('change', (event) => {
-      if (!event.last && moves.includes(event.target.key)) return
       galaxy.bake()
       if (event.last) console.log(`const GALAXY = ${JSON.stringify(settings)}`)
     })
@@ -83,6 +79,128 @@ export function createDebugPane(bloom, reliefMaterials = [], fog = null, glass =
   return {
     dispose() {
       pane.dispose()
+    },
+  }
+}
+
+// État du panneau « 404 » gardé dans le navigateur (localStorage) : réglages et dossiers ouverts.
+// Rangé par nom de réglage, pas par position dans le panneau : ajouter un curseur plus tard ne mélange
+// pas les valeurs. Un réglage disparu ou d'un autre type est ignoré.
+const STORAGE_KEY = 'page404:panel'
+
+function readStorage() {
+  try {
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY)) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStorage(state) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Stockage indisponible (navigation privée…) : le panneau marche, sans mémoire.
+  }
+}
+
+function restore(target, saved = {}) {
+  for (const [key, value] of Object.entries(saved)) {
+    if (key in target && typeof value === typeof target[key]) target[key] = value
+  }
+}
+
+// Panneau du « 404 », toujours visible, en haut à gauche (le panneau principal, masqué par défaut,
+// occupe la droite) : halo des reflets, chanfrein des chiffres, galaxie et occlusion du sol. Chaque
+// geste journalise la valeur à recopier comme valeur par défaut.
+export function createPortalPane(portal, galaxy = null) {
+  const container = document.createElement('div')
+  container.style.cssText = 'position: fixed; top: 8px; left: 8px; width: 260px; z-index: 10;'
+  document.body.append(container)
+  const { halo, ao, chamfer } = portal
+  const galaxySettings = galaxy?.settings ?? {}
+
+  // Valeurs gardées appliquées avant de créer les curseurs, qui les affichent donc directement.
+  // Panneau masqué : rien n'est relu, les valeurs par défaut du code s'appliquent telles quelles.
+  const saved = DEBUG ? readStorage() : {}
+  restore(halo, saved.halo)
+  restore(ao, saved.ao)
+  restore(chamfer, saved.chamfer)
+  restore(galaxySettings, saved.galaxy)
+  if (chamfer.chamfer !== portal.glassChamfer) portal.setChamfer(chamfer.chamfer)
+  galaxy?.bake()
+
+  const folders = saved.folders ?? {}
+  const pane = new Pane({ title: '404', container, expanded: folders.root ?? true })
+  // Masqué par défaut, comme le panneau principal (?debug pour l'afficher).
+  container.hidden = !DEBUG
+  function save() {
+    writeStorage({ halo, ao, chamfer, galaxy: galaxySettings, folders })
+  }
+  pane.on('fold', (event) => {
+    folders.root = event.expanded
+    save()
+  })
+  function addFolder(title) {
+    const folder = pane.addFolder({ title, expanded: folders[title] ?? true })
+    folder.on('fold', (event) => {
+      folders[title] = event.expanded
+      save()
+    })
+    return folder
+  }
+  pane.on('change', (event) => {
+    if (event.last) save()
+  })
+
+  const glow = addFolder('Glow')
+  glow.addBinding(halo, 'strength', { label: 'intensité', min: 0, max: 6, step: 0.05 })
+  glow.addBinding(halo, 'radius', { label: 'étalement', min: 0, max: 5, step: 0.05 })
+  glow.addBinding(halo, 'threshold', { label: 'seuil', min: 0, max: 2, step: 0.01 })
+  glow.addBinding(halo, 'tint', { label: 'couleur fixe', min: 0, max: 1, step: 0.01 })
+  glow.addBinding(halo, 'color', { label: 'couleur' })
+  glow.on('change', (event) => {
+    if (event.last) console.log(`export const HALO = ${JSON.stringify(halo)}`)
+  })
+
+  const edges = addFolder('Chanfrein')
+  edges.addBinding(chamfer, 'chamfer', { label: 'largeur', min: 0, max: 0.2, step: 0.005 })
+    .on('change', (event) => {
+      portal.setChamfer(event.value)
+      if (event.last) console.log(`export const CHAMFER = { chamfer: ${event.value} }`)
+    })
+
+  // Galaxie en splats : position libre (sans bornes), échelle, suivi, orientation, à recopier dans
+  // GALAXY (galaxy.js). Appliqués à chaque image : aucun recalcul du fond.
+  if (galaxy) {
+    const folder = addFolder('Galaxie')
+    folder.addBinding(galaxySettings, 'galaxyX', { label: 'position x', step: 1 })
+    folder.addBinding(galaxySettings, 'galaxyY', { label: 'position y', step: 1 })
+    folder.addBinding(galaxySettings, 'galaxyZ', { label: 'position z', step: 1 })
+    folder.addBinding(galaxySettings, 'galaxyRadius', { label: 'échelle', min: 1, max: 3000, step: 1 })
+    folder.addBinding(galaxySettings, 'splatTilt', { label: 'inclinaison', min: -3.14, max: 3.14, step: 0.01 })
+    folder.addBinding(galaxySettings, 'splatSpin', { label: 'rotation', min: -3.14, max: 3.14, step: 0.01 })
+    folder.addBinding(galaxySettings, 'splatIntensity', { label: 'luminosité', min: 0, max: 1.5, step: 0.01 })
+    folder.addBinding(galaxySettings, 'splatFraction', { label: 'nombre de splats', min: 0, max: 1, step: 0.01 })
+    folder.addBinding(galaxySettings, 'splatScale', { label: 'rayon des splats', min: 0.1, max: 5, step: 0.05 })
+    folder.addBinding(galaxySettings, 'splatRoundness', { label: 'traits → points', min: 0, max: 1, step: 0.01 })
+    folder.addBinding(galaxySettings, 'splatTint', { label: 'teinte' })
+    folder.on('change', (event) => {
+      if (event.last) console.log(`const GALAXY = ${JSON.stringify(galaxySettings)}`)
+    })
+  }
+
+  const occlusion = addFolder('SSAO')
+  occlusion.addBinding(ao, 'strength', { label: 'intensité', min: 0, max: 1.5, step: 0.01 })
+  occlusion.addBinding(ao, 'radius', { label: 'rayon', min: 0.05, max: 3, step: 0.05 })
+  occlusion.on('change', (event) => {
+    if (event.last) console.log(`export const AO = ${JSON.stringify(ao)}`)
+  })
+
+  return {
+    dispose() {
+      pane.dispose()
+      container.remove()
     },
   }
 }

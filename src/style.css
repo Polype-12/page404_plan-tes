@@ -9,7 +9,8 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #050508;
+  /* Blanc du studio du « 404 » : le canevas est transparent devant lui (voir portal.js). */
+  background: #fff;
 }
 
 canvas {
@@ -30,7 +31,7 @@ canvas:active {
   --dock-size: 40px;
   --progress: 0;
   position: fixed;
-  bottom: 24px;
+  bottom: 48px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;

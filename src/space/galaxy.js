@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { loadSplatGalaxy } from './splat-galaxy.js'
+import { LOOP_LENGTH } from './planets.js'
 
 // Fond de l'espace : une seule bande galactique très sombre, vue par la tranche, qui traverse le ciel
 // en biais. Nuages doux, couloirs de poussière plus sombres, bulbe un peu plus chaud d'un côté et
@@ -10,10 +11,15 @@ import { loadSplatGalaxy } from './splat-galaxy.js'
 // tilt : inclinaison de la bande à l'écran (radians). width : épaisseur angulaire de la bande.
 // dust : opacité des couloirs de poussière. stars : densité de la poussière d'étoiles.
 // cool / warm : teintes de la bande et du bulbe.
-// splat… : galaxie en gaussian splatting (splat-galaxy.js), cuite dans le même fond, donc toujours
-// derrière les astres. splatIntensity : luminosité (rester bas pour ne pas concurrencer les planètes).
-// splatSize : diamètre apparent (degrés). splatYaw / splatPitch : direction dans le ciel (radians,
-// 0 = droit devant, vers -z). splatTilt / splatSpin : inclinaison et rotation du disque.
+// splat… / galaxy… : galaxie en gaussian splatting (splat-galaxy.js), vrai objet de l'espace dessiné à
+// chaque image dans la même scène que les astres (profondeur et brouillard communs). splatFraction :
+// part des splats dessinés (0 à 1, moins = plus léger). splatScale : facteur du rayon de chaque splat.
+// splatRoundness : 0 = ellipses du fichier (traits), 1 = points ronds.
+// splatIntensity :
+// luminosité. galaxyX / galaxyY / galaxyZ : position dans le monde, au départ du couloir (droit devant
+// = -z). Elle se répète avec le couloir, comme les astres (planets.js) : une fois dépassée, elle revient
+// LOOP_LENGTH plus loin, inversée en x une fois sur deux. galaxyRadius : rayon. splatTilt / splatSpin :
+// inclinaison et rotation du disque.
 // splatTint : teinte multipliée aux couleurs du fichier.
 export const GALAXY = {
   brightness: 0.005,
@@ -23,17 +29,19 @@ export const GALAXY = {
   stars: 0.7,
   cool: '#354467',
   warm: '#9aa3c2',
-  splatIntensity: 0.03,
-  splatSize: 84,
-  splatYaw: -0.61,
-  splatPitch: 0.2,
-  splatTilt: 1.05,
-  splatSpin: -0.27,
-  splatTint: '#c6d4ff',
+  galaxyX: -156,
+  galaxyY: -20,
+  galaxyZ: -404,
+  galaxyRadius: 360,
+  splatTilt: -0.07,
+  splatSpin: 3.14,
+  splatTint: '#f2f2f2',
+  splatIntensity: 1.5,
+  splatFraction: 0.43,
+  splatScale: 0.4,
+  splatRoundness: 0.87,
 }
 const SPLAT_URL = 'galaxy/galaxy.compressed.ply'
-// Distance de la galaxie au point de vue de la cuisson : dans la sphère du ciel (rayon 10).
-const SPLAT_DISTANCE = 6
 const RESOLUTION = 1024
 
 const vertexShader = /* glsl */ `
@@ -133,43 +141,53 @@ export function createGalaxy(renderer, scene) {
   const cubeCamera = new THREE.CubeCamera(1, 100, target)
   scene.background = target.texture
 
-  // La galaxie arrive après coup (fichier de 9 Mo, décodé dans un worker) : le fond est recuit dès
-  // qu'elle est prête, puis après chaque nouveau tri.
+  // La galaxie arrive après coup (fichier de 9 Mo, décodé dans un worker), dans l'espace lui-même.
   let ready = false
   const pivot = new THREE.Group()
-  skyScene.add(pivot)
-  let placement = ''
-  const splat = loadSplatGalaxy(`${import.meta.env.BASE_URL}${SPLAT_URL}`, { onSorted: () => bake() })
-  splat.setResolution(RESOLUTION)
+  pivot.visible = false
+  scene.add(pivot)
+  const splat = loadSplatGalaxy(`${import.meta.env.BASE_URL}${SPLAT_URL}`)
   pivot.add(splat.mesh)
   let radius = 1
   splat.loaded.then(({ center, radius: loadedRadius }) => {
     splat.mesh.position.copy(center).negate()
     radius = loadedRadius
     ready = true
-    bake()
+    pivot.visible = true
   }).catch((error) => console.error(error))
 
-  function placeSplat() {
-    const { splatSize, splatYaw, splatPitch, splatTilt, splatSpin } = settings
-    pivot.position.set(
-      Math.sin(splatYaw) * Math.cos(splatPitch),
-      Math.sin(splatPitch),
-      -Math.cos(splatYaw) * Math.cos(splatPitch),
-    ).multiplyScalar(SPLAT_DISTANCE)
+  // Nouveau tri quand la galaxie change de place, ou quand la caméra s'est assez déplacée par rapport
+  // à elle (2 % de leur distance) : l'ordre des splats reste juste sans trier à chaque image.
+  let placement = ''
+  const sortedFrom = new THREE.Vector3(Infinity, 0, 0)
+  const toCamera = new THREE.Vector3()
+  const size = new THREE.Vector2()
+
+  function update(camera) {
+    if (!ready) return
+    const { galaxyX, galaxyY, galaxyZ, galaxyRadius, splatTilt, splatSpin } = settings
+    // Répétition du couloir : replacée devant une fois tout son disque passé derrière la caméra.
+    const loop = Math.floor((camera.position.z + galaxyRadius + 120 - galaxyZ) / LOOP_LENGTH)
+    pivot.position.set(loop % 2 ? -galaxyX : galaxyX, galaxyY, galaxyZ + loop * LOOP_LENGTH)
     // Les scènes 3DGS sont « y vers le bas » : demi-tour autour de x, puis inclinaison du disque.
     pivot.rotation.set(Math.PI + splatTilt, splatSpin, 0, 'YXZ')
-    pivot.scale.setScalar(SPLAT_DISTANCE * Math.tan(THREE.MathUtils.degToRad(splatSize / 2)) / radius)
-    // Le tri (le plus coûteux, dans le worker) n'est refait que si la galaxie a bougé ; la cuisson
-    // suivante arrive avec onSorted.
-    const key = [splatSize, splatYaw, splatPitch, splatTilt, splatSpin].join()
-    if (key !== placement) {
-      placement = key
-      splat.requestSort()
-    }
+    pivot.scale.setScalar(galaxyRadius / radius)
     const { uniforms: splatUniforms } = splat.mesh.material
     splatUniforms.uIntensity.value = settings.splatIntensity
     splatUniforms.uTint.value.set(settings.splatTint)
+    splatUniforms.uFraction.value = settings.splatFraction
+    splatUniforms.uSplatScale.value = settings.splatScale
+    splatUniforms.uRoundness.value = settings.splatRoundness
+    renderer.getDrawingBufferSize(size)
+    splat.setViewport(size.x, size.y, camera.fov)
+
+    const key = [galaxyRadius, splatTilt, splatSpin].join()
+    toCamera.subVectors(camera.position, pivot.position)
+    if (key !== placement || toCamera.distanceTo(sortedFrom) > 0.02 * toCamera.length()) {
+      placement = key
+      sortedFrom.copy(toCamera)
+      splat.requestSort(camera)
+    }
   }
 
   function bake() {
@@ -185,7 +203,6 @@ export function createGalaxy(renderer, scene) {
     // Bulbe : dans le plan, en avant et sur le côté.
     const core = uniforms.uCore.value.set(-0.6, 0, -1)
     core.addScaledVector(normal, -core.dot(normal)).normalize()
-    if (ready) placeSplat()
     cubeCamera.update(renderer, skyScene)
   }
   bake()
@@ -193,6 +210,8 @@ export function createGalaxy(renderer, scene) {
   return {
     settings,
     bake,
+    // À appeler à chaque image, avant le rendu de l'espace : place la galaxie et relance le tri.
+    update,
     dispose() {
       splat.dispose()
       target.dispose()

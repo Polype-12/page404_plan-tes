@@ -8,7 +8,7 @@ import { createNavigation } from './space/navigation.js'
 import { createPostprocessing } from './space/postprocessing.js'
 import { createFog } from './space/fog.js'
 import { createGalaxy } from './space/galaxy.js'
-import { createDebugPane } from './space/debug.js'
+import { createDebugPane, createPortalPane } from './space/debug.js'
 import { createPortal } from './portal/portal.js'
 import { createDockSlider } from './ui/dock-slider.js'
 
@@ -35,7 +35,8 @@ const HOME_DURATION = 1.6
 // Avancement de la plongée au-delà duquel le curseur d'amarrage disparaît.
 const HIDE_BUTTON = 0.6
 
-const renderer = new THREE.WebGLRenderer({ antialias: true })
+// alpha : le « 404 » est rendu sur un canevas transparent, le blanc du studio vient du CSS.
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // Ombres franches : pas de filtrage doux, pour un terminateur net.
 renderer.shadowMap.enabled = true
@@ -69,6 +70,7 @@ const portalCamera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 100)
 portalCamera.position.set(0, 0, PORTAL_DISTANCE)
 const portal = createPortal({ renderer, camera: portalCamera, getSpaceTexture: () => postprocessing.texture })
 const debugPane = createDebugPane(postprocessing.bloom, planets.reliefMaterials, fog, portal.glass, galaxy)
+const portalPane = createPortalPane(portal, galaxy)
 const spaceOffset = SPACE_HOME_Z - portal.frontZ
 // OrbitControls déplace une caméra témoin, toujours tournée vers le centre ; la caméra rendue la copie
 // au loin, puis s'en écarte le long de la courbe de plongée (voir placePortalCamera).
@@ -242,6 +244,7 @@ renderer.setAnimationLoop((time) => {
   planets.update(reducedMotion.matches ? 0 : delta, spaceCamera)
   particles.update(spaceCamera, reducedMotion.matches ? 0 : time / 1000)
   sun.follow(spaceCamera)
+  galaxy.update(spaceCamera)
   renderer.clippingPlanes = mode === 'portal' ? windowClip : []
   postprocessing.render(delta)
   renderer.clippingPlanes = []
@@ -256,6 +259,7 @@ if (import.meta.hot) {
     dockSlider.dispose()
     renderer.setAnimationLoop(null)
     debugPane.dispose()
+    portalPane.dispose()
     portalControls.dispose()
     portal.dispose()
     navigation.dispose()
