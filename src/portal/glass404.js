@@ -162,6 +162,10 @@ export function createGlass404(windowMaterial) {
     get bottomY() {
       return bottom()
     },
+    // Demi-largeur du « 404 » (chanfrein compris), en unités du monde : pour le cadrage (main_404.js).
+    get halfWidth() {
+      return Math.max(...geometries.map((geometry) => Math.max(-geometry.boundingBox.min.x, geometry.boundingBox.max.x))) * scale
+    },
     get chamfer() {
       return chamfer
     },

@@ -18,8 +18,10 @@ export function createDockSlider(root, { onDock = () => {} } = {}) {
   // le grossissement de la planète amarrée), relatives au curseur.
   let dots = []
   let spacing = DOT_SPACING
+  // Taille du satellite : la hauteur du curseur (--dock-size, résolu par le navigateur même s'il
+  // s'agit d'un clamp()).
   function thumbSize() {
-    return parseFloat(getComputedStyle(root).getPropertyValue('--dock-size'))
+    return input.offsetHeight
   }
   // Bord droit du satellite pour une valeur donnée (la poignée parcourt la largeur moins sa taille).
   function satelliteEdge(value) {

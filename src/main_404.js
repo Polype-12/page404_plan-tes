@@ -173,10 +173,19 @@ function goHome() {
 }
 
 // Garder un angle de base sur le petit côté sans déplacer la caméra.
+// Part maximale de la largeur de l'écran occupée par le « 404 » vu de face : il reste toujours une
+// marge blanche des deux côtés, même en format vertical.
+const MAX_404_WIDTH = 0.82
+
 function applyFov(camera, baseFov, aspect) {
   camera.aspect = aspect
   const baseHalfFov = THREE.MathUtils.degToRad(baseFov / 2)
-  camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(baseHalfFov) / Math.min(aspect, 1)))
+  let tanHalf = Math.tan(baseHalfFov) / Math.min(aspect, 1)
+  // Angle horizontal assez large pour le « 404 » et ses marges, depuis la vue de départ ; en paysage,
+  // il l'est déjà. Le même angle sert aux deux caméras : le passage dans l'espace reste invisible.
+  const minTanHalfWidth = portal.halfWidth / (MAX_404_WIDTH * (PORTAL_DISTANCE - portal.frontZ))
+  tanHalf = Math.max(tanHalf, minTanHalfWidth / aspect)
+  camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tanHalf))
   camera.updateProjectionMatrix()
 }
 

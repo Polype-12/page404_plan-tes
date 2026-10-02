@@ -365,6 +365,9 @@ export function createPortal({ renderer, camera, getSpaceTexture }) {
     frontZ: glass.frontZ,
     bottomY: glass.bottomY,
     entryX: glass.entryX,
+    get halfWidth() {
+      return glass.halfWidth
+    },
     // inside : vrai une fois la fenêtre franchie, l'espace occupe tout l'écran.
     // Intensité des reflets, réglable dans le panneau (valeur par défaut : GLASS dans glass404.js).
     glass: { reflections: GLASS.reflections },
