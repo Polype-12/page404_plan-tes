@@ -95,7 +95,7 @@ canvas:active {
   height: var(--dock-size);
   /* Centre la poignée sur le trait de 1px. */
   margin-top: calc(var(--dock-size) / -2);
-  background: url('/satelite_1.svg') center / contain no-repeat;
+  background: url('/satelite_2.svg') center / contain no-repeat;
   border: none;
   appearance: none;
   -webkit-appearance: none;
@@ -104,7 +104,7 @@ canvas:active {
 .dock-input::-moz-range-thumb {
   width: var(--dock-size);
   height: var(--dock-size);
-  background: url('/satelite_1.svg') center / contain no-repeat;
+  background: url('/satelite_2.svg') center / contain no-repeat;
   border: none;
   border-radius: 0;
 }

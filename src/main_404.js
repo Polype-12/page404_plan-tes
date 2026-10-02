@@ -14,8 +14,12 @@ import { createDockSlider } from './ui/dock-slider.js'
 
 const app = document.querySelector('#app')
 const homeButton = document.querySelector('#home')
-// Pour l'instant, l'amarrage n'amène nulle part (goHome reste prêt à y être branché).
-const dockSlider = createDockSlider(homeButton)
+// Satellite amarré à la Terre : départ vers le site de l'ECAL, juste après la pulsation de la planète.
+const DOCK_URL = 'https://ecal.ch/fr/'
+const DOCK_DELAY = 400
+const dockSlider = createDockSlider(homeButton, {
+  onDock: () => setTimeout(() => window.location.assign(DOCK_URL), DOCK_DELAY),
+})
 
 // Le plan de la fenêtre (face avant du « 404 ») correspond à la profondeur SPACE_HOME_Z de l'espace :
 // la caméra de l'espace est la caméra du portail, décalée en z. Rien de l'espace ne dépasse ce plan.

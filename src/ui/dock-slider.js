@@ -85,10 +85,25 @@ export function createDockSlider(root, { onDock = () => {} } = {}) {
     if (Number(input.value) < max) returnToStart()
   }
 
+  // Retour sur la page (bouton « précédent » après l'ECAL) : le navigateur peut la restaurer telle
+  // qu'elle était, satellite amarré. Il repart du début, comme au premier chargement.
+  function reset() {
+    cancelReturn()
+    input.value = 0
+    root.classList.remove('is-docked')
+    input.removeAttribute('aria-valuetext')
+    showProgress()
+  }
+  function onPageShow(event) {
+    if (event.persisted) reset()
+  }
+  window.addEventListener('pageshow', onPageShow)
+
   // Recalcul si la mise en page change (taille du texte, du curseur…).
   const resizeObserver = new ResizeObserver(layoutDots)
   resizeObserver.observe(root)
   layoutDots()
+  reset()
 
   input.addEventListener('input', onInput)
   input.addEventListener('change', onRelease)
@@ -98,6 +113,7 @@ export function createDockSlider(root, { onDock = () => {} } = {}) {
     dispose() {
       cancelReturn()
       resizeObserver.disconnect()
+      window.removeEventListener('pageshow', onPageShow)
       layer.replaceChildren()
       input.removeEventListener('input', onInput)
       input.removeEventListener('change', onRelease)
