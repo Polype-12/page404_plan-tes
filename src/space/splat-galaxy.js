@@ -21,6 +21,7 @@ const vertexShader = /* glsl */ `
   uniform float uRoundness;
   varying vec4 vColor;
   varying vec2 vPosition;
+  varying float vFade;
   #include <fog_pars_vertex>
   #include <clipping_planes_pars_vertex>
 
@@ -31,7 +32,9 @@ const vertexShader = /* glsl */ `
       vClipPosition = -view.xyz;
     #endif
     vec4 clip = projectionMatrix * view;
-    float bound = 1.2 * clip.w;
+    // Gardé jusqu'à deux fois la largeur du champ : un splat dont le centre est sorti peut encore
+    // couvrir le bord de l'écran ; il s'estompe une fois sorti (voir vFade), puis disparaît.
+    float bound = 2.0 * clip.w;
     // Tirage stable par splat (d'après sa position, pas son rang, qui change à chaque tri) : la
     // galaxie s'éclaircit uniformément, sans scintiller. Écarté ici, un splat ne coûte aucun pixel.
     float pick = fract(sin(dot(aCenter, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -43,6 +46,10 @@ const vertexShader = /* glsl */ `
       gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
       return;
     }
+    // Fondu : nul dans le champ, il commence quand le centre en sort (bord = 1) et s'achève à 2 ;
+    // aussi tout près de la caméra, où un splat devient immense.
+    float edge = max(abs(clip.x), abs(clip.y)) / clip.w;
+    vFade = (1.0 - smoothstep(1.0, 2.0, edge)) * smoothstep(1.0, 12.0, -view.z);
 
     // Covariance projetée à l'écran : Σ' = J W Σ Wᵀ Jᵀ (la caméra regarde vers -z).
     mat3 sigma = mat3(aCovA.x, aCovA.y, aCovA.z, aCovA.y, aCovB.x, aCovB.y, aCovA.z, aCovB.y, aCovB.z);
@@ -88,6 +95,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uTint;
   varying vec4 vColor;
   varying vec2 vPosition;
+  varying float vFade;
   #include <fog_pars_fragment>
   #include <clipping_planes_pars_fragment>
 
@@ -95,7 +103,7 @@ const fragmentShader = /* glsl */ `
     #include <clipping_planes_fragment>
     float power = -dot(vPosition, vPosition);
     if (power < -4.0) discard;
-    float alpha = exp(power) * vColor.a;
+    float alpha = exp(power) * vColor.a * vFade;
     // Couleurs du fichier en sRGB, ramenées en linéaire puis teintées et atténuées.
     vec3 color = pow(vColor.rgb, vec3(2.2)) * uTint * uIntensity;
     // Brouillard de la scène, comme sur les astres (exponentiel ou linéaire selon scene.fog).

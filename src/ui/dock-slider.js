@@ -2,15 +2,51 @@
 // C'est un <input type="range"> natif (clavier et lecteurs d'écran compris), habillé en CSS.
 // Lâché avant la planète, le satellite revient en douceur à son point de départ.
 const RETURN_DURATION = 350
+// Écart visé entre les points (px) ; l'écart réel est ajusté pour tomber juste entre les icônes.
+const DOT_SPACING = 8
 
 export function createDockSlider(root, { onDock = () => {} } = {}) {
   const input = root.querySelector('input[type="range"]')
+  const track = root.querySelector('.dock-track')
+  const planet = root.querySelector('.dock-planet')
+  const layer = root.querySelector('.dock-dots')
   const max = Number(input.max)
   let frame = null
 
-  // Avancement 0 à 1, pour effacer les pointillés déjà parcourus (voir style.css).
+  // Pointillés : même écart entre le bord du satellite (au repos) et le premier point, entre deux
+  // points, et entre le dernier point et le bord de la planète. Mesures en offset (non touchées par
+  // le grossissement de la planète amarrée), relatives au curseur.
+  let dots = []
+  let spacing = DOT_SPACING
+  function thumbSize() {
+    return parseFloat(getComputedStyle(root).getPropertyValue('--dock-size'))
+  }
+  // Bord droit du satellite pour une valeur donnée (la poignée parcourt la largeur moins sa taille).
+  function satelliteEdge(value) {
+    const size = thumbSize()
+    return track.offsetLeft + input.offsetLeft + (value / max) * (input.offsetWidth - size) + size
+  }
+  function layoutDots() {
+    const start = satelliteEdge(0)
+    const distance = planet.offsetLeft - start
+    const gaps = Math.max(1, Math.round(distance / DOT_SPACING))
+    spacing = distance / gaps
+    layer.replaceChildren()
+    dots = Array.from({ length: gaps - 1 }, (_, index) => {
+      const dot = document.createElement('span')
+      dot.className = 'dock-dot'
+      dot.style.left = `${start + (index + 1) * spacing}px`
+      layer.append(dot)
+      return { dot, x: start + (index + 1) * spacing }
+    })
+    showProgress()
+  }
+
+  // Un point disparaît dès que le satellite en serait plus près que l'écart : il reste toujours au
+  // moins un écart entre le satellite et le point suivant.
   function showProgress() {
-    root.style.setProperty('--progress', Number(input.value) / max)
+    const edge = satelliteEdge(Number(input.value))
+    for (const { dot, x } of dots) dot.classList.toggle('is-gone', x - edge < spacing - 0.5)
   }
 
   function setDocked(docked) {
@@ -49,6 +85,11 @@ export function createDockSlider(root, { onDock = () => {} } = {}) {
     if (Number(input.value) < max) returnToStart()
   }
 
+  // Recalcul si la mise en page change (taille du texte, du curseur…).
+  const resizeObserver = new ResizeObserver(layoutDots)
+  resizeObserver.observe(root)
+  layoutDots()
+
   input.addEventListener('input', onInput)
   input.addEventListener('change', onRelease)
   input.addEventListener('pointerdown', cancelReturn)
@@ -56,6 +97,8 @@ export function createDockSlider(root, { onDock = () => {} } = {}) {
   return {
     dispose() {
       cancelReturn()
+      resizeObserver.disconnect()
+      layer.replaceChildren()
       input.removeEventListener('input', onInput)
       input.removeEventListener('change', onRelease)
       input.removeEventListener('pointerdown', cancelReturn)

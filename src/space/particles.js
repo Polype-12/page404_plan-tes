@@ -17,6 +17,17 @@ const starVertex = /* glsl */ `
   uniform float uTime;
   varying float vStar;
   varying float vGlow;
+  varying float vFade;
+`
+// Fondu de sortie : le GPU efface un point dès que son centre quitte l'écran, même s'il le couvre
+// encore à moitié. Les gros points (proches) s'estompent donc juste avant, près du bord ; les petits,
+// lointains, ne sont pas touchés. Tout près de la caméra, ils s'estompent aussi.
+const exitFade = /* glsl */ `
+  #include <fog_vertex>
+  vec2 screen = gl_Position.xy / gl_Position.w;
+  float edge = max(abs(screen.x), abs(screen.y));
+  float big = smoothstep(3.0, 24.0, gl_PointSize);
+  vFade = mix(1.0, 1.0 - smoothstep(0.82, 1.0, edge), big) * smoothstep(0.3, 2.5, -mvPosition.z);
 `
 const starSize = /* glsl */ `
   vStar = step(0.5, aStar);
@@ -35,6 +46,7 @@ const starFragment = /* glsl */ `
     diffuseColor.a = clamp(core + halo * 0.7, 0.0, 1.0) * opacity;
   }
   diffuseColor.rgb *= vGlow;
+  diffuseColor.a *= vFade;
 `
 
 export function createParticles(scene, planets) {
@@ -82,8 +94,10 @@ export function createParticles(scene, planets) {
     })
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = time
-      shader.vertexShader = starVertex + shader.vertexShader.replace('gl_PointSize = size;', starSize)
-      shader.fragmentShader = 'varying float vStar;\nvarying float vGlow;\n'
+      shader.vertexShader = starVertex + shader.vertexShader
+        .replace('gl_PointSize = size;', starSize)
+        .replace('#include <fog_vertex>', exitFade)
+      shader.fragmentShader = 'varying float vStar;\nvarying float vGlow;\nvarying float vFade;\n'
         + shader.fragmentShader.replace('#include <map_particle_fragment>', starFragment)
     }
     const tiles = [new THREE.Points(geometry, material), new THREE.Points(geometry, material)]

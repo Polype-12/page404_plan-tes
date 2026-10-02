@@ -25,11 +25,10 @@ canvas:active {
   cursor: grabbing;
 }
 
-/* Curseur d'amarrage : le satellite (poignée) glisse sur des pointillés jusqu'à la planète ; les
-   points qu'il a dépassés disparaissent. --progress (0 à 1) est tenu à jour par dock-slider.js. */
+/* Curseur d'amarrage : le satellite (poignée) glisse sur des pointillés jusqu'à la planète. Les
+   points sont placés par dock-slider.js, à intervalles égaux entre les deux icônes. */
 #home {
   --dock-size: 40px;
-  --progress: 0;
   position: fixed;
   bottom: 48px;
   left: 50%;
@@ -43,16 +42,26 @@ canvas:active {
   position: relative;
 }
 
-/* Points ancrés à droite : seule leur limite gauche suit le centre du satellite. */
+/* Calque des points, sur toute la largeur du curseur ; chaque point est centré sur sa position. */
 .dock-dots {
   position: absolute;
-  top: 50%;
-  right: 0;
-  left: calc(var(--dock-size) / 2 + (100% - var(--dock-size)) * var(--progress));
-  height: 4px;
-  transform: translateY(-50%);
-  background: radial-gradient(circle, #000 1.2px, transparent 1.6px) right center / 8px 4px repeat-x;
+  inset: 0;
   pointer-events: none;
+}
+
+.dock-dot {
+  position: absolute;
+  top: 50%;
+  width: 2.5px;
+  height: 2.5px;
+  margin: -1.25px 0 0 -1.25px;
+  border-radius: 50%;
+  background: #000;
+  transition: opacity 0.15s;
+}
+
+.dock-dot.is-gone {
+  opacity: 0;
 }
 
 .dock-input {
@@ -86,7 +95,7 @@ canvas:active {
   height: var(--dock-size);
   /* Centre la poignée sur le trait de 1px. */
   margin-top: calc(var(--dock-size) / -2);
-  background: url('/satelite.svg') center / contain no-repeat;
+  background: url('/satelite_1.svg') center / contain no-repeat;
   border: none;
   appearance: none;
   -webkit-appearance: none;
@@ -95,7 +104,7 @@ canvas:active {
 .dock-input::-moz-range-thumb {
   width: var(--dock-size);
   height: var(--dock-size);
-  background: url('/satelite.svg') center / contain no-repeat;
+  background: url('/satelite_1.svg') center / contain no-repeat;
   border: none;
   border-radius: 0;
 }
